@@ -1,19 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
-import { LayoutDashboard, Dumbbell, FileText, LogOut, Store } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { LayoutDashboard, Dumbbell, FileText, LogOut, Store, Tags, Factory, Percent } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 const links = [
   { href: "/admin", label: "Tổng quan", icon: LayoutDashboard, exact: true },
   { href: "/admin/products", label: "Sản phẩm", icon: Dumbbell },
+  { href: "/admin/categories", label: "Loại sản phẩm", icon: Tags },
+  { href: "/admin/factories", label: "Nhà máy", icon: Factory },
+  { href: "/admin/pricing-settings", label: "Cấu hình giá", icon: Percent },
   { href: "/admin/quotes", label: "Yêu cầu báo giá", icon: FileText },
 ];
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <aside className="flex shrink-0 flex-col border-b bg-white md:w-60 md:border-b-0 md:border-r">
@@ -47,7 +58,7 @@ export function AdminSidebar() {
           <Store className="h-4 w-4" /> Xem trang khách hàng
         </Link>
         <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={handleSignOut}
           className="flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent/60"
         >
           <LogOut className="h-4 w-4" /> Đăng xuất

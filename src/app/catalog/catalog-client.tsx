@@ -2,14 +2,15 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { ShoppingCart, LogOut, LayoutDashboard, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { PRODUCT_CATEGORIES, type Product } from "@/lib/types";
+import { cn, formatUSD } from "@/lib/utils";
+import type { Category, Product } from "@/lib/types";
 import { QuoteCartDialog } from "./quote-cart-dialog";
 
 export interface CartLine {
@@ -19,23 +20,33 @@ export interface CartLine {
 
 export function CatalogClient({
   products,
+  categories,
   customerName,
   customerEmail,
   isAdmin,
 }: {
   products: Product[];
+  categories: Category[];
   customerName: string;
   customerEmail: string;
   isAdmin: boolean;
 }) {
+  const router = useRouter();
   const [category, setCategory] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [cartOpen, setCartOpen] = useState(false);
 
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
+
   const filtered = useMemo(() => {
     return products.filter((p) => {
-      const matchesCategory = category === "all" || p.category === category;
+      const matchesCategory = category === "all" || p.categoryId === category;
       const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase().trim());
       return matchesCategory && matchesSearch;
     });
@@ -105,7 +116,7 @@ export function CatalogClient({
               variant="ghost"
               size="icon"
               title="Đăng xuất"
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={handleSignOut}
             >
               <LogOut className="h-4 w-4" />
             </Button>
@@ -126,8 +137,13 @@ export function CatalogClient({
           </div>
           <div className="flex flex-wrap gap-2">
             <CategoryChip label="Tất cả" active={category === "all"} onClick={() => setCategory("all")} />
-            {PRODUCT_CATEGORIES.map((c) => (
-              <CategoryChip key={c} label={c} active={category === c} onClick={() => setCategory(c)} />
+            {categories.map((c) => (
+              <CategoryChip
+                key={c.id}
+                label={c.name}
+                active={category === c.id}
+                onClick={() => setCategory(c.id)}
+              />
             ))}
           </div>
         </div>
@@ -151,11 +167,12 @@ export function CatalogClient({
                 </div>
                 <CardContent className="flex flex-1 flex-col gap-2 p-3">
                   <Badge variant="outline" className="w-fit text-[10px]">
-                    {product.category}
+                    {product.categoryName}
                   </Badge>
                   <p className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-tight">
                     {product.name}
                   </p>
+                  <p className="text-sm font-bold text-primary">{formatUSD(product.priceUsd)}</p>
                   <Button
                     size="sm"
                     className="mt-auto"

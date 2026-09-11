@@ -1,31 +1,28 @@
-export type ProductCategory =
-  | "Máy chạy bộ"
-  | "Xe đạp tập"
-  | "Thiết bị cardio khác"
-  | "Giàn tạ & máy tập toàn thân"
-  | "Máy tập cơ đơn lẻ"
-  | "Dụng cụ tập tạ tự do"
-  | "Phụ kiện tập luyện";
+export interface Category {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
-export const PRODUCT_CATEGORIES: ProductCategory[] = [
-  "Máy chạy bộ",
-  "Xe đạp tập",
-  "Thiết bị cardio khác",
-  "Giàn tạ & máy tập toàn thân",
-  "Máy tập cơ đơn lẻ",
-  "Dụng cụ tập tạ tự do",
-  "Phụ kiện tập luyện",
-];
+export interface Factory {
+  id: string;
+  name: string;
+  country?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface Product {
   id: string;
+  model: string;
   name: string;
-  brand: string;
-  category: ProductCategory;
   image: string;
-  costPrice: number;
-  retailPrice: number;
-  projectPrice: number;
+  priceUsd: number;
+  categoryId: string;
+  categoryName: string;
+  factoryId: string;
+  factoryName: string;
   description: string;
   available: boolean;
   createdAt: string;
@@ -36,12 +33,11 @@ export type QuoteStatus = "new" | "quoted" | "sent";
 
 export interface QuoteRequestItem {
   productId: string;
+  model: string;
   name: string;
   image: string;
-  category: ProductCategory;
   quantity: number;
-  retailPrice: number;
-  projectPrice: number;
+  price: number;
 }
 
 export interface QuoteLineItem {

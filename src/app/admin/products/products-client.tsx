@@ -1,20 +1,125 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/utils";
-import type { Product } from "@/lib/types";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { formatUSD, formatVND } from "@/lib/utils";
+import { computePricesUsd, usdToVnd, type PricingSettings } from "@/lib/pricing";
+import type { Category, Factory, Product } from "@/lib/types";
+import type { PaginatedProducts } from "@/lib/data/products";
 import { ProductFormDialog } from "./product-form-dialog";
 
-export function ProductsClient({ initialProducts }: { initialProducts: Product[] }) {
-  const [products, setProducts] = useState(initialProducts);
+const ALL = "all";
+type Currency = "vnd" | "usd";
+
+interface Filters {
+  search: string;
+  categoryId: string;
+  factoryId: string;
+  minPrice: string;
+  maxPrice: string;
+}
+
+const EMPTY_FILTERS: Filters = { search: "", categoryId: ALL, factoryId: ALL, minPrice: "", maxPrice: "" };
+
+export function ProductsClient({
+  initialResult,
+  pageSize,
+  categories,
+  factories,
+  initialPricingSettings,
+}: {
+  initialResult: PaginatedProducts;
+  pageSize: number;
+  categories: Category[];
+  factories: Factory[];
+  initialPricingSettings: PricingSettings;
+}) {
+  const [products, setProducts] = useState(initialResult.products);
+  const [total, setTotal] = useState(initialResult.total);
+  const [totalPages, setTotalPages] = useState(initialResult.totalPages);
+  const [page, setPage] = useState(initialResult.page);
+  const [loading, setLoading] = useState(false);
+  const [pricingSettings, setPricingSettings] = useState(initialPricingSettings);
+  const [currency, setCurrency] = useState<Currency>("vnd");
+
+  const [search, setSearch] = useState("");
+  const [categoryId, setCategoryId] = useState(ALL);
+  const [factoryId, setFactoryId] = useState(ALL);
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [committed, setCommitted] = useState<Filters>(EMPTY_FILTERS);
+
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Product | undefined>(undefined);
+  const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
+
+  // Debounce: only commit filter changes (and jump back to page 1) 400ms
+  // after the user stops typing/selecting, so we don't hit the API on every
+  // keystroke.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setCommitted({ search, categoryId, factoryId, minPrice, maxPrice });
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [search, categoryId, factoryId, minPrice, maxPrice]);
+
+  const fetchProducts = useCallback(
+    async (targetPage: number, filters: Filters) => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        params.set("scope", "all");
+        params.set("page", String(targetPage));
+        params.set("pageSize", String(pageSize));
+        if (filters.search.trim()) params.set("search", filters.search.trim());
+        if (filters.categoryId !== ALL) params.set("categoryId", filters.categoryId);
+        if (filters.factoryId !== ALL) params.set("factoryId", filters.factoryId);
+        if (filters.minPrice) params.set("minPrice", filters.minPrice);
+        if (filters.maxPrice) params.set("maxPrice", filters.maxPrice);
+
+        const res = await fetch(`/api/products?${params.toString()}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Không tải được danh sách sản phẩm");
+
+        setProducts(data.products);
+        setTotal(data.total);
+        setTotalPages(data.totalPages);
+        if (data.pricingSettings) setPricingSettings(data.pricingSettings);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Không tải được danh sách sản phẩm");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [pageSize]
+  );
+
+  // Skip the very first effect run: initialResult was already rendered by
+  // the server for the default (unfiltered, page 1) view.
+  const isFirstRun = useRef(true);
+  useEffect(() => {
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
+      return;
+    }
+    fetchProducts(page, committed);
+  }, [committed, page, fetchProducts]);
+
+  function resetFilters() {
+    setSearch("");
+    setCategoryId(ALL);
+    setFactoryId(ALL);
+    setMinPrice("");
+    setMaxPrice("");
+  }
 
   function openAdd() {
     setEditing(undefined);
@@ -26,25 +131,30 @@ export function ProductsClient({ initialProducts }: { initialProducts: Product[]
     setFormOpen(true);
   }
 
-  function handleSaved(product: Product) {
-    setProducts((prev) => {
-      const idx = prev.findIndex((p) => p.id === product.id);
-      if (idx === -1) return [product, ...prev];
-      const next = [...prev];
-      next[idx] = product;
-      return next;
-    });
+  function handleSaved() {
+    fetchProducts(page, committed);
   }
 
   async function handleDelete(product: Product) {
-    if (!confirm(`Xóa sản phẩm "${product.name}"?`)) return;
+    if (!confirm(`Xóa sản phẩm "${product.model}"?`)) return;
     const res = await fetch(`/api/products/${product.id}`, { method: "DELETE" });
     if (!res.ok) {
       toast.error("Xóa sản phẩm thất bại");
       return;
     }
-    setProducts((prev) => prev.filter((p) => p.id !== product.id));
     toast.success("Đã xóa sản phẩm");
+    const nextPage = products.length === 1 && page > 1 ? page - 1 : page;
+    if (nextPage === page) {
+      fetchProducts(page, committed);
+    } else {
+      setPage(nextPage);
+    }
+  }
+
+  const hasActiveFilters = search || categoryId !== ALL || factoryId !== ALL || minPrice || maxPrice;
+
+  function formatPrice(usd: number) {
+    return currency === "vnd" ? formatVND(usdToVnd(usd, pricingSettings.usdToVndRate)) : formatUSD(usd);
   }
 
   return (
@@ -52,66 +162,225 @@ export function ProductsClient({ initialProducts }: { initialProducts: Product[]
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Sản phẩm</h1>
-          <p className="text-sm text-muted-foreground">{products.length} thiết bị trong hệ thống</p>
+          <p className="text-sm text-muted-foreground">{total} thiết bị trong hệ thống</p>
         </div>
         <Button onClick={openAdd}>
           <Plus className="mr-1 h-4 w-4" /> Thêm sản phẩm
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {products.map((product) => (
-          <Card key={product.id} className="overflow-hidden">
-            <div className="relative aspect-video w-full bg-slate-100">
-              <Image src={product.image} alt={product.name} fill className="object-cover" />
-              {!product.available ? (
-                <Badge variant="secondary" className="absolute left-2 top-2">
-                  Ngừng bán
-                </Badge>
-              ) : null}
+      <Card>
+        <CardContent className="flex flex-wrap items-end gap-3 pt-6">
+          <div className="min-w-[200px] flex-1 space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Tìm kiếm</label>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Tên sản phẩm hoặc model..."
+                className="pl-8"
+              />
             </div>
-            <CardContent className="space-y-1.5 p-3">
-              <Badge variant="outline" className="text-[10px]">
-                {product.category}
-              </Badge>
-              <p className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-tight">
-                {product.name}
-              </p>
-              <div className="space-y-0.5 text-xs">
-                <p className="text-muted-foreground">
-                  Giá vốn: <span className="font-medium text-foreground">{formatCurrency(product.costPrice)}</span>
-                </p>
-                <p className="text-muted-foreground">
-                  Giá dự án: <span className="font-medium text-foreground">{formatCurrency(product.projectPrice)}</span>
-                </p>
-                <p className="font-semibold text-primary">
-                  Giá bán lẻ: {formatCurrency(product.retailPrice)}
-                </p>
-              </div>
-              <div className="flex gap-2 pt-2">
-                <Button size="sm" variant="outline" className="flex-1" onClick={() => openEdit(product)}>
-                  <Pencil className="mr-1 h-3.5 w-3.5" /> Sửa
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => handleDelete(product)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+          </div>
+          <div className="w-44 space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Loại sản phẩm</label>
+            <select
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+            >
+              <option value={ALL}>Tất cả</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="w-44 space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Nhà máy</label>
+            <select
+              value={factoryId}
+              onChange={(e) => setFactoryId(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+            >
+              <option value={ALL}>Tất cả</option>
+              {factories.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="w-28 space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Giá từ (USD)</label>
+            <Input type="number" min={0} value={minPrice} onChange={(e) => setMinPrice(e.target.value)} placeholder="0" />
+          </div>
+          <div className="w-28 space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Đến (USD)</label>
+            <Input type="number" min={0} value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} placeholder="---" />
+          </div>
+          <div className="w-36 space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Đơn vị hiển thị</label>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value as Currency)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+            >
+              <option value="vnd">VNĐ</option>
+              <option value="usd">USD</option>
+            </select>
+          </div>
+          {hasActiveFilters ? (
+            <Button variant="ghost" size="sm" onClick={resetFilters}>
+              <X className="mr-1 h-3.5 w-3.5" /> Xoá lọc
+            </Button>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-0">
+          <div className="max-h-[65vh] overflow-auto">
+            <table className="w-full min-w-[760px] text-sm">
+              <thead>
+                <tr className="sticky top-0 z-10 border-b bg-slate-50 text-left text-xs text-muted-foreground">
+                  <th className="w-10 px-3 py-2 font-medium">STT</th>
+                  <th className="w-16 px-3 py-2 font-medium"></th>
+                  <th className="px-3 py-2 font-medium">Model</th>
+                  <th className="px-3 py-2 text-right font-medium">Giá nhà máy</th>
+                  <th className="px-3 py-2 text-right font-medium">Giá vốn</th>
+                  <th className="px-3 py-2 text-right font-medium">Giá lẻ</th>
+                  <th className="px-3 py-2 text-right font-medium">Giá sỉ</th>
+                  <th className="px-3 py-2 font-medium">Tên sản phẩm</th>
+                  <th className="px-3 py-2 font-medium">Loại</th>
+                  <th className="px-3 py-2 font-medium">Nhà máy</th>
+                  <th className="px-3 py-2 font-medium">Trạng thái</th>
+                  <th className="px-3 py-2 text-right font-medium">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={12} className="px-3 py-10 text-center text-muted-foreground">
+                      <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+                    </td>
+                  </tr>
+                ) : products.length === 0 ? (
+                  <tr>
+                    <td colSpan={12} className="px-3 py-8 text-center text-muted-foreground">
+                      Không tìm thấy sản phẩm phù hợp.
+                    </td>
+                  </tr>
+                ) : (
+                  products.map((product, index) => {
+                    const prices = computePricesUsd(product.priceUsd, pricingSettings);
+                    return (
+                    <tr key={product.id} className="border-b last:border-0 hover:bg-accent/30">
+                      <td className="px-3 py-2 text-muted-foreground">{(page - 1) * pageSize + index + 1}</td>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewImage({ src: product.image, alt: product.name })}
+                          className="relative block h-10 w-10 shrink-0 overflow-hidden rounded bg-slate-100 transition-opacity hover:opacity-80"
+                        >
+                          <Image src={product.image} alt={product.name} fill className="object-cover" />
+                        </button>
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">{product.model}</td>
+                      <td className="px-3 py-2 text-right text-muted-foreground">
+                        {formatPrice(prices.factoryUsd)}
+                      </td>
+                      <td className="px-3 py-2 text-right">{formatPrice(prices.costUsd)}</td>
+                      <td className="px-3 py-2 text-right font-semibold text-primary">
+                        {formatPrice(prices.retailUsd)}
+                      </td>
+                      <td className="px-3 py-2 text-right">{formatPrice(prices.wholesaleUsd)}</td>
+                      <td className="max-w-[220px] px-3 py-2 font-medium">
+                        <span className="line-clamp-2">{product.name}</span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <Badge variant="outline" className="text-[10px]">
+                          {product.categoryName}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">{product.factoryName}</td>
+                      <td className="px-3 py-2">
+                        <Badge variant={product.available ? "success" : "secondary"}>
+                          {product.available ? "Đang bán" : "Ngừng bán"}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex justify-end gap-1">
+                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(product)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => handleDelete(product)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <p>
+          Trang {page}/{totalPages} · {total} sản phẩm
+        </p>
+        <div className="flex gap-1">
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-8 w-8"
+            disabled={page <= 1 || loading}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-8 w-8"
+            disabled={page >= totalPages || loading}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <ProductFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
         product={editing}
+        categories={categories}
+        factories={factories}
         onSaved={handleSaved}
       />
+
+      <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogTitle className="sr-only">{previewImage?.alt ?? "Ảnh sản phẩm"}</DialogTitle>
+          {previewImage ? (
+            <div className="relative h-[70vh] w-full">
+              <Image src={previewImage.src} alt={previewImage.alt} fill sizes="90vw" className="object-contain" />
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,15 +1,6 @@
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import { Document, Page, View, Text, Image, StyleSheet, Font } from "@react-pdf/renderer";
 import type { QuoteLineItem, QuoteRequest } from "@/lib/types";
-
-// @react-pdf/renderer resolves plain path strings via `new URL(src)`, which
-// mishandles Windows paths (e.g. "D:\..." parses as scheme "D:"). Converting
-// to a proper file:// URL first works on every OS.
-function resolveProductImageSrc(relativePath: string) {
-  const absolute = path.join(process.cwd(), "public", relativePath);
-  return pathToFileURL(absolute).href;
-}
 
 // Helvetica (react-pdf's built-in font) has no Vietnamese diacritics, so we
 // register a Unicode font that does.
@@ -21,8 +12,13 @@ Font.register({
   ],
 });
 
-function formatVnd(value: number) {
-  return `${new Intl.NumberFormat("vi-VN").format(Math.round(value))} đ`;
+function formatUsd(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 const styles = StyleSheet.create({
@@ -166,12 +162,12 @@ export function QuoteDocument({ quote, items }: QuoteDocumentProps) {
           {items.map((item, idx) => (
             <View style={styles.tableRow} key={`${item.productId}-${idx}`} wrap={false}>
               <View style={styles.colImage}>
-                <Image style={styles.productImage} src={resolveProductImageSrc(item.image)} />
+                <Image style={styles.productImage} src={item.image} />
               </View>
               <Text style={styles.colName}>{item.name}</Text>
               <Text style={styles.colQty}>{item.quantity}</Text>
-              <Text style={styles.colUnit}>{formatVnd(item.unitPrice)}</Text>
-              <Text style={styles.colTotal}>{formatVnd(item.unitPrice * item.quantity)}</Text>
+              <Text style={styles.colUnit}>{formatUsd(item.unitPrice)}</Text>
+              <Text style={styles.colTotal}>{formatUsd(item.unitPrice * item.quantity)}</Text>
             </View>
           ))}
         </View>
@@ -179,7 +175,7 @@ export function QuoteDocument({ quote, items }: QuoteDocumentProps) {
         <View style={styles.totalsBox}>
           <View style={styles.grandTotalRow}>
             <Text style={styles.grandTotalLabel}>Tổng cộng</Text>
-            <Text style={styles.grandTotalValue}>{formatVnd(total)}</Text>
+            <Text style={styles.grandTotalValue}>{formatUsd(total)}</Text>
           </View>
         </View>
 

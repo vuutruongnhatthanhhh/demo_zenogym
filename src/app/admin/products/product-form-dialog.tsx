@@ -13,48 +13,66 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { PRODUCT_CATEGORIES, type Product } from "@/lib/types";
+import type { Category, Factory, Product } from "@/lib/types";
 
 export function ProductFormDialog({
   open,
   onOpenChange,
   product,
+  categories,
+  factories,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   product?: Product;
+  categories: Category[];
+  factories: Factory[];
   onSaved: (product: Product) => void;
 }) {
   const isEdit = !!product;
+  const [model, setModel] = useState("");
   const [name, setName] = useState("");
-  const [brand, setBrand] = useState("");
-  const [category, setCategory] = useState<string>(PRODUCT_CATEGORIES[0]);
+  const [categoryId, setCategoryId] = useState("");
+  const [factoryId, setFactoryId] = useState("");
+  const [priceUsd, setPriceUsd] = useState("");
   const [description, setDescription] = useState("");
-  const [costPrice, setCostPrice] = useState("");
-  const [retailPrice, setRetailPrice] = useState("");
-  const [projectPrice, setProjectPrice] = useState("");
   const [available, setAvailable] = useState(true);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (open) {
+      setModel(product?.model ?? "");
       setName(product?.name ?? "");
-      setBrand(product?.brand ?? "");
-      setCategory(product?.category ?? PRODUCT_CATEGORIES[0]);
+      setCategoryId(product?.categoryId ?? categories[0]?.id ?? "");
+      setFactoryId(product?.factoryId ?? factories[0]?.id ?? "");
+      setPriceUsd(product ? String(product.priceUsd) : "");
       setDescription(product?.description ?? "");
-      setCostPrice(product ? String(product.costPrice) : "");
-      setRetailPrice(product ? String(product.retailPrice) : "");
-      setProjectPrice(product ? String(product.projectPrice) : "");
       setAvailable(product?.available ?? true);
       setImageFile(null);
+      setImagePreview(product?.image ?? null);
     }
-  }, [open, product]);
+  }, [open, product, categories, factories]);
+
+  // Show a live preview of the newly picked file; revert to the existing
+  // product image (if any) when the file is cleared.
+  useEffect(() => {
+    if (!imageFile) {
+      setImagePreview(product?.image ?? null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(imageFile);
+    setImagePreview(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [imageFile, product]);
+
+  const missingTaxonomy = categories.length === 0 || factories.length === 0;
 
   async function handleSubmit() {
-    if (!name.trim() || !retailPrice || !projectPrice) {
-      toast.error("Vui lòng nhập đầy đủ tên, giá bán lẻ và giá dự án");
+    if (!model.trim() || !name.trim() || !priceUsd || !categoryId || !factoryId) {
+      toast.error("Vui lòng nhập đầy đủ model, tên, giá, loại sản phẩm và nhà máy");
       return;
     }
     if (!isEdit && !imageFile) {
@@ -65,13 +83,12 @@ export function ProductFormDialog({
     setSubmitting(true);
     try {
       const form = new FormData();
+      form.set("model", model);
       form.set("name", name);
-      form.set("brand", brand);
-      form.set("category", category);
+      form.set("categoryId", categoryId);
+      form.set("factoryId", factoryId);
+      form.set("priceUsd", priceUsd);
       form.set("description", description);
-      form.set("costPrice", costPrice || "0");
-      form.set("retailPrice", retailPrice);
-      form.set("projectPrice", projectPrice);
       form.set("available", String(available));
       if (imageFile) form.set("image", imageFile);
 
@@ -98,97 +115,115 @@ export function ProductFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>{isEdit ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm mới"}</DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="col-span-full space-y-1">
-            <Label htmlFor="p-name">Tên sản phẩm *</Label>
-            <Input id="p-name" value={name} onChange={(e) => setName(e.target.value)} />
+        {missingTaxonomy ? (
+          <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            Vui lòng tạo ít nhất 1 "Loại sản phẩm" và 1 "Nhà máy" trước khi thêm sản phẩm.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="p-model">Model *</Label>
+              <Input id="p-model" value={model} onChange={(e) => setModel(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="p-price">Giá nhà máy (USD) *</Label>
+              <Input
+                id="p-price"
+                type="number"
+                min={0}
+                step="0.01"
+                value={priceUsd}
+                onChange={(e) => setPriceUsd(e.target.value)}
+              />
+            </div>
+            <div className="col-span-full space-y-1">
+              <Label htmlFor="p-name">Tên sản phẩm *</Label>
+              <Input id="p-name" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="p-category">Loại sản phẩm *</Label>
+              <select
+                id="p-category"
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+              >
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="p-factory">Nhà máy *</Label>
+              <select
+                id="p-factory"
+                value={factoryId}
+                onChange={(e) => setFactoryId(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+              >
+                {factories.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="p-available">Trạng thái</Label>
+              <select
+                id="p-available"
+                value={available ? "true" : "false"}
+                onChange={(e) => setAvailable(e.target.value === "true")}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+              >
+                <option value="true">Đang bán</option>
+                <option value="false">Ngừng bán</option>
+              </select>
+            </div>
+            <div className="col-span-full space-y-1">
+              <Label htmlFor="p-description">Mô tả</Label>
+              <Textarea
+                id="p-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            <div className="col-span-full space-y-1">
+              <Label htmlFor="p-image">
+                Hình ảnh {isEdit ? "(để trống nếu giữ ảnh cũ)" : "*"}
+              </Label>
+              {imagePreview ? (
+                // Plain <img>, not next/image: previewing a freshly picked file
+                // uses a blob: object URL, which the Image optimizer can't fetch.
+                <div className="h-32 w-32 overflow-hidden rounded-md border bg-slate-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imagePreview}
+                    alt="Xem trước ảnh sản phẩm"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              ) : null}
+              <Input
+                id="p-image"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+              />
+              <p className="text-xs text-muted-foreground">Ảnh sẽ được tự động chuyển sang định dạng WebP.</p>
+            </div>
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="p-brand">Thương hiệu</Label>
-            <Input id="p-brand" value={brand} onChange={(e) => setBrand(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="p-category">Danh mục</Label>
-            <select
-              id="p-category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm"
-            >
-              {PRODUCT_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="p-cost">Giá vốn (VNĐ)</Label>
-            <Input
-              id="p-cost"
-              type="number"
-              value={costPrice}
-              onChange={(e) => setCostPrice(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="p-project">Giá dự án (VNĐ) *</Label>
-            <Input
-              id="p-project"
-              type="number"
-              value={projectPrice}
-              onChange={(e) => setProjectPrice(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="p-retail">Giá bán lẻ (VNĐ) *</Label>
-            <Input
-              id="p-retail"
-              type="number"
-              value={retailPrice}
-              onChange={(e) => setRetailPrice(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="p-available">Trạng thái</Label>
-            <select
-              id="p-available"
-              value={available ? "true" : "false"}
-              onChange={(e) => setAvailable(e.target.value === "true")}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm"
-            >
-              <option value="true">Đang bán</option>
-              <option value="false">Ngừng bán</option>
-            </select>
-          </div>
-          <div className="col-span-full space-y-1">
-            <Label htmlFor="p-description">Mô tả</Label>
-            <Textarea
-              id="p-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
-          <div className="col-span-full space-y-1">
-            <Label htmlFor="p-image">
-              Hình ảnh {isEdit ? "(để trống nếu giữ ảnh cũ)" : "*"}
-            </Label>
-            <Input
-              id="p-image"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
-            />
-          </div>
-        </div>
+        )}
 
         <DialogFooter>
-          <Button onClick={handleSubmit} disabled={submitting}>
+          <Button onClick={handleSubmit} disabled={submitting || missingTaxonomy}>
             {submitting ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Thêm sản phẩm"}
           </Button>
         </DialogFooter>

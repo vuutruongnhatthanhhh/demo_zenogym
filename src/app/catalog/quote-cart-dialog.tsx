@@ -64,12 +64,11 @@ export function QuoteCartDialog({
           note: note || undefined,
           items: cartLines.map((l) => ({
             productId: l.product.id,
+            model: l.product.model,
             name: l.product.name,
             image: l.product.image,
-            category: l.product.category,
             quantity: l.quantity,
-            retailPrice: l.product.retailPrice,
-            projectPrice: l.product.projectPrice,
+            price: l.product.priceUsd,
           })),
         }),
       });

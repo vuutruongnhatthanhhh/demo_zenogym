@@ -1,14 +1,13 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getQuoteById, saveQuotePricing } from "@/lib/data/quotes";
 import type { QuoteLineItem } from "@/lib/types";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "admin") {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "admin") {
     return NextResponse.json({ error: "Không có quyền truy cập" }, { status: 403 });
   }
   const { id } = await params;
@@ -18,8 +17,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "admin") {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "admin") {
     return NextResponse.json({ error: "Không có quyền truy cập" }, { status: 403 });
   }
   const { id } = await params;

@@ -1,21 +1,22 @@
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getAvailableProducts } from "@/lib/data/products";
+import { getAllCategories } from "@/lib/data/categories";
 import { CatalogClient } from "./catalog-client";
 
 export default async function CatalogPage() {
-  const session = await getServerSession(authOptions);
-  if (!session) redirect("/login");
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
 
-  const products = await getAvailableProducts();
+  const [products, categories] = await Promise.all([getAvailableProducts(), getAllCategories()]);
 
   return (
     <CatalogClient
       products={products}
-      customerName={session.user.name ?? ""}
-      customerEmail={session.user.email ?? ""}
-      isAdmin={session.user.role === "admin"}
+      categories={categories}
+      customerName={user.name}
+      customerEmail={user.email}
+      isAdmin={user.role === "admin"}
     />
   );
 }

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getAllProducts } from "@/lib/data/products";
 import { getAllQuotes } from "@/lib/data/quotes";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 
 const STATUS_LABEL: Record<string, string> = {
   new: "Yêu cầu mới",

@@ -1,24 +1,49 @@
-import { withAuth } from "next-auth/middleware";
-import { NextResponse } from "next/server";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
 
-export default withAuth(
-  function middleware(req) {
-    const token = req.nextauth.token;
-    const isAdminRoute = req.nextUrl.pathname.startsWith("/admin");
-    if (isAdminRoute && token?.role !== "admin") {
-      return NextResponse.redirect(new URL("/login", req.url));
+export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({ request });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
+        },
+      },
     }
-    return NextResponse.next();
-  },
-  {
-    callbacks: {
-      authorized: ({ token }) => !!token,
-    },
-    pages: {
-      signIn: "/login",
-    },
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith("/admin")) {
+    if (!user) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+    if (user.app_metadata?.role !== "admin") {
+      return NextResponse.redirect(new URL("/catalog", request.url));
+    }
   }
-);
+
+  if (pathname.startsWith("/catalog") && !user) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  return response;
+}
 
 export const config = {
   matcher: ["/admin/:path*", "/catalog/:path*"],

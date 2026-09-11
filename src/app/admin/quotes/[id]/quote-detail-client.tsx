@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatUSD, formatDate } from "@/lib/utils";
 import type { QuoteLineItem, QuoteRequest } from "@/lib/types";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -33,7 +33,7 @@ function buildInitialLines(quote: QuoteRequest): QuoteLineItem[] {
     name: item.name,
     image: item.image,
     quantity: item.quantity,
-    unitPrice: item.projectPrice,
+    unitPrice: item.price,
   }));
 }
 
@@ -87,7 +87,7 @@ export function QuoteDetailClient({ quote: initialQuote }: { quote: QuoteRequest
       return;
     }
     const confirmed = confirm(
-      `Gửi báo giá PDF qua email cho ${quote.customerEmail}?\nTổng tiền: ${formatCurrency(total)}`
+      `Gửi báo giá PDF qua email cho ${quote.customerEmail}?\nTổng tiền: ${formatUSD(total)}`
     );
     if (!confirmed) return;
 
@@ -184,27 +184,18 @@ export function QuoteDetailClient({ quote: initialQuote }: { quote: QuoteRequest
                         />
                       </div>
                       {original ? (
-                        <div className="flex gap-1">
-                          <button
-                            type="button"
-                            onClick={() => applyPreset(idx, original.projectPrice)}
-                            className="rounded-full border px-2 py-0.5 text-[11px] hover:bg-accent"
-                          >
-                            Giá dự án {formatCurrency(original.projectPrice)}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => applyPreset(idx, original.retailPrice)}
-                            className="rounded-full border px-2 py-0.5 text-[11px] hover:bg-accent"
-                          >
-                            Giá bán lẻ {formatCurrency(original.retailPrice)}
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => applyPreset(idx, original.price)}
+                          className="rounded-full border px-2 py-0.5 text-[11px] hover:bg-accent"
+                        >
+                          Giá đề xuất {formatUSD(original.price)}
+                        </button>
                       ) : null}
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2">
-                    <p className="text-sm font-semibold">{formatCurrency(line.unitPrice * line.quantity)}</p>
+                    <p className="text-sm font-semibold">{formatUSD(line.unitPrice * line.quantity)}</p>
                     <Button
                       size="icon"
                       variant="ghost"
@@ -221,7 +212,7 @@ export function QuoteDetailClient({ quote: initialQuote }: { quote: QuoteRequest
 
           <div className="flex justify-end border-t pt-3">
             <p className="text-lg font-bold">
-              Tổng cộng: <span className="text-primary">{formatCurrency(total)}</span>
+              Tổng cộng: <span className="text-primary">{formatUSD(total)}</span>
             </p>
           </div>
 
