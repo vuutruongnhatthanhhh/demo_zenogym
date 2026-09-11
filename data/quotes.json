@@ -1,0 +1,180 @@
+[
+  {
+    "id": "f520c417-89e9-4dbc-be71-602685af8ac8",
+    "code": "ZG-2026-0001",
+    "customerName": "Nhật Thanh",
+    "customerEmail": "nhatthanh28012002@gmail.com",
+    "customerPhone": "0911622262",
+    "items": [
+      {
+        "productId": "141bb8ba-d509-4ce0-86e8-da5d608afbd9",
+        "name": "Máy chạy bộ TitanFit Runner X",
+        "image": "/images/products/treadmill-1.jpg",
+        "category": "Máy chạy bộ",
+        "quantity": 1,
+        "retailPrice": 49500000,
+        "projectPrice": 42500000
+      },
+      {
+        "productId": "84b1918a-7bec-4080-b9bd-b6adb8e6c175",
+        "name": "Xe đạp tập FitCore Air Bike",
+        "image": "/images/products/exercise-bike-2.jpg",
+        "category": "Xe đạp tập",
+        "quantity": 1,
+        "retailPrice": 8600000,
+        "projectPrice": 7200000
+      },
+      {
+        "productId": "956367fd-5e49-4e6a-986c-3be5a711bc8d",
+        "name": "Xe đạp tập ZenoElite Studio Pro",
+        "image": "/images/products/exercise-bike-2.jpg",
+        "category": "Xe đạp tập",
+        "quantity": 1,
+        "retailPrice": 15200000,
+        "projectPrice": 13000000
+      },
+      {
+        "productId": "521134c6-1a77-42f3-9860-6cf5de67e8d5",
+        "name": "Máy tập elliptical IronMax E8",
+        "image": "/images/products/elliptical-2.jpg",
+        "category": "Thiết bị cardio khác",
+        "quantity": 1,
+        "retailPrice": 33000000,
+        "projectPrice": 28000000
+      },
+      {
+        "productId": "19a6a77d-f532-4be7-b0cd-8994e8e7beda",
+        "name": "Giàn tạ đa năng ZenoPro Rack PR3",
+        "image": "/images/products/power-rack-1.jpg",
+        "category": "Giàn tạ & máy tập toàn thân",
+        "quantity": 1,
+        "retailPrice": 22800000,
+        "projectPrice": 19500000
+      },
+      {
+        "productId": "25e01adb-0e83-43c8-8c64-6122f7ee1218",
+        "name": "Giàn tạ đa năng IronMax Power Cage",
+        "image": "/images/products/power-rack-2.jpg",
+        "category": "Giàn tạ & máy tập toàn thân",
+        "quantity": 2,
+        "retailPrice": 31000000,
+        "projectPrice": 26500000
+      }
+    ],
+    "status": "sent",
+    "createdAt": "2026-08-30T16:35:50.320Z",
+    "quotedItems": [
+      {
+        "productId": "141bb8ba-d509-4ce0-86e8-da5d608afbd9",
+        "name": "Máy chạy bộ TitanFit Runner X",
+        "image": "/images/products/treadmill-1.jpg",
+        "quantity": 1,
+        "unitPrice": 43500000
+      },
+      {
+        "productId": "84b1918a-7bec-4080-b9bd-b6adb8e6c175",
+        "name": "Xe đạp tập FitCore Air Bike",
+        "image": "/images/products/exercise-bike-2.jpg",
+        "quantity": 1,
+        "unitPrice": 7200000
+      },
+      {
+        "productId": "956367fd-5e49-4e6a-986c-3be5a711bc8d",
+        "name": "Xe đạp tập ZenoElite Studio Pro",
+        "image": "/images/products/exercise-bike-2.jpg",
+        "quantity": 1,
+        "unitPrice": 13000000
+      },
+      {
+        "productId": "521134c6-1a77-42f3-9860-6cf5de67e8d5",
+        "name": "Máy tập elliptical IronMax E8",
+        "image": "/images/products/elliptical-2.jpg",
+        "quantity": 1,
+        "unitPrice": 28000000
+      },
+      {
+        "productId": "19a6a77d-f532-4be7-b0cd-8994e8e7beda",
+        "name": "Giàn tạ đa năng ZenoPro Rack PR3",
+        "image": "/images/products/power-rack-1.jpg",
+        "quantity": 1,
+        "unitPrice": 19500000
+      },
+      {
+        "productId": "25e01adb-0e83-43c8-8c64-6122f7ee1218",
+        "name": "Giàn tạ đa năng IronMax Power Cage",
+        "image": "/images/products/power-rack-2.jpg",
+        "quantity": 2,
+        "unitPrice": 26500000
+      }
+    ],
+    "quotedTotal": 164200000,
+    "quotedNote": "Ưu đãi lắp đặt trong tháng này",
+    "quotedAt": "2026-08-30T16:38:47.220Z",
+    "sentAt": "2026-08-30T16:39:02.318Z"
+  },
+  {
+    "id": "47abdb49-af1e-4a31-9e92-5fcc957558a8",
+    "code": "ZG-2026-0002",
+    "customerName": "Nhật Thanh",
+    "customerEmail": "nhatthanh28012002@gmail.com",
+    "customerPhone": "0911622262",
+    "items": [
+      {
+        "productId": "053b0d83-88a5-41a0-8951-77468bd00b19",
+        "name": "Máy chạy bộ ZenoPro T7",
+        "image": "/images/products/treadmill-2.jpg",
+        "category": "Máy chạy bộ",
+        "quantity": 2,
+        "retailPrice": 34500000,
+        "projectPrice": 29500000
+      },
+      {
+        "productId": "956367fd-5e49-4e6a-986c-3be5a711bc8d",
+        "name": "Xe đạp tập ZenoElite Studio Pro",
+        "image": "/images/products/exercise-bike-2.jpg",
+        "category": "Xe đạp tập",
+        "quantity": 1,
+        "retailPrice": 15200000,
+        "projectPrice": 13000000
+      },
+      {
+        "productId": "efafc92b-b293-40a0-b5dc-947505c56ee4",
+        "name": "Máy tập ngực ZenoPro Chest Press",
+        "image": "/images/products/chest-press-1.jpg",
+        "category": "Máy tập cơ đơn lẻ",
+        "quantity": 2,
+        "retailPrice": 21800000,
+        "projectPrice": 18500000
+      }
+    ],
+    "status": "sent",
+    "createdAt": "2026-08-30T16:45:29.082Z",
+    "quotedItems": [
+      {
+        "productId": "053b0d83-88a5-41a0-8951-77468bd00b19",
+        "name": "Máy chạy bộ ZenoPro T7",
+        "image": "/images/products/treadmill-2.jpg",
+        "quantity": 2,
+        "unitPrice": 30500000
+      },
+      {
+        "productId": "956367fd-5e49-4e6a-986c-3be5a711bc8d",
+        "name": "Xe đạp tập ZenoElite Studio Pro",
+        "image": "/images/products/exercise-bike-2.jpg",
+        "quantity": 1,
+        "unitPrice": 14000000
+      },
+      {
+        "productId": "efafc92b-b293-40a0-b5dc-947505c56ee4",
+        "name": "Máy tập ngực ZenoPro Chest Press",
+        "image": "/images/products/chest-press-1.jpg",
+        "quantity": 2,
+        "unitPrice": 18500000
+      }
+    ],
+    "quotedTotal": 112000000,
+    "quotedNote": "Ưu đãi lắp đặt trong tháng này",
+    "quotedAt": "2026-08-30T16:48:11.893Z",
+    "sentAt": "2026-08-30T16:48:23.464Z"
+  }
+]

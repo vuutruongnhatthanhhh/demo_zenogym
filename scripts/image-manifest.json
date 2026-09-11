@@ -1,0 +1,90 @@
+{
+  "treadmill": [
+    "/images/products/treadmill-1.jpg",
+    "/images/products/treadmill-2.jpg",
+    "/images/products/treadmill-3.jpg"
+  ],
+  "exercise-bike": [
+    "/images/products/exercise-bike-1.jpg",
+    "/images/products/exercise-bike-2.jpg",
+    "/images/products/exercise-bike-3.png"
+  ],
+  "elliptical": [
+    "/images/products/elliptical-1.jpg",
+    "/images/products/elliptical-2.jpg"
+  ],
+  "rowing-machine": [
+    "/images/products/rowing-machine-1.jpg"
+  ],
+  "power-rack": [
+    "/images/products/power-rack-1.jpg",
+    "/images/products/power-rack-2.jpg",
+    "/images/products/power-rack-3.jpg"
+  ],
+  "smith-machine": [
+    "/images/products/smith-machine-2.jpg"
+  ],
+  "chest-press": [
+    "/images/products/chest-press-1.jpg",
+    "/images/products/chest-press-2.jpg"
+  ],
+  "shoulder-press": [
+    "/images/products/shoulder-press-1.jpg",
+    "/images/products/shoulder-press-2.jpg"
+  ],
+  "lat-pulldown": [
+    "/images/products/lat-pulldown-1.jpg"
+  ],
+  "leg-extension": [
+    "/images/products/leg-extension-1.jpg"
+  ],
+  "leg-press": [
+    "/images/products/leg-press-1.jpg",
+    "/images/products/leg-press-2.jpg"
+  ],
+  "cable-crossover": [
+    "/images/products/cable-crossover-1.png",
+    "/images/products/cable-crossover-2.png"
+  ],
+  "weight-bench": [
+    "/images/products/weight-bench-1.jpg",
+    "/images/products/weight-bench-3.jpg"
+  ],
+  "dumbbells": [
+    "/images/products/dumbbells-1.jpg",
+    "/images/products/dumbbells-2.jpg",
+    "/images/products/dumbbells-3.jpg"
+  ],
+  "kettlebell": [
+    "/images/products/kettlebell-1.jpg",
+    "/images/products/kettlebell-2.jpg"
+  ],
+  "barbell": [
+    "/images/products/barbell-1.jpg",
+    "/images/products/barbell-2.jpg"
+  ],
+  "plyo-box": [
+    "/images/products/plyo-box-1.jpg"
+  ],
+  "battle-rope": [
+    "/images/products/battle-rope-1.jpg"
+  ],
+  "medicine-ball": [
+    "/images/products/medicine-ball-1.jpg"
+  ],
+  "vibration-plate": [
+    "/images/products/vibration-plate-1.jpg"
+  ],
+  "stair-climber": [
+    "/images/products/stair-climber-1.jpg"
+  ],
+  "yoga-mat": [
+    "/images/products/yoga-mat-1.jpg"
+  ],
+  "trx": [
+    "/images/products/trx-1.jpg"
+  ],
+  "multi-gym": [
+    "/images/products/multi-gym-1.jpg"
+  ]
+}
