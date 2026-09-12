@@ -1,15 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ShoppingCart, LogOut, LayoutDashboard, Search } from "lucide-react";
+import { toast } from "sonner";
+import { ShoppingCart, LogOut, LayoutDashboard, Search, Info, Loader2, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { cn, formatUSD } from "@/lib/utils";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { createClient } from "@/lib/supabase/client";
+import { cn, formatVND } from "@/lib/utils";
+import { computePricesUsd, usdToVnd, type PricingSettings } from "@/lib/pricing";
 import type { Category, Product } from "@/lib/types";
 import { QuoteCartDialog } from "./quote-cart-dialog";
 
@@ -21,21 +24,76 @@ export interface CartLine {
 export function CatalogClient({
   products,
   categories,
+  pricingSettings,
   customerName,
   customerEmail,
+  customerPhone,
+  customerCompany,
   isAdmin,
 }: {
   products: Product[];
   categories: Category[];
+  pricingSettings: PricingSettings;
   customerName: string;
   customerEmail: string;
+  customerPhone: string;
+  customerCompany: string;
   isAdmin: boolean;
 }) {
   const router = useRouter();
-  const [category, setCategory] = useState<string>("all");
+  const [category, setCategory] = useState<string>(() => categories[0]?.id ?? "");
   const [search, setSearch] = useState("");
-  const [cart, setCart] = useState<Record<string, number>>({});
+  // Every product starts selected (quantity 1) so the customer can simply
+  // untick what they don't want, instead of hunting for an "add" button.
+  const [cart, setCart] = useState<Record<string, number>>(() =>
+    Object.fromEntries(products.map((p) => [p.id, 1]))
+  );
   const [cartOpen, setCartOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
+
+  const [committed, setCommitted] = useState({ search: "", categoryId: category });
+  const [displayedProducts, setDisplayedProducts] = useState<Product[]>(() =>
+    products.filter((p) => p.categoryId === category)
+  );
+  const [loading, setLoading] = useState(false);
+
+  // Debounce: only commit search/tab changes 400ms after the user stops
+  // typing/clicking, so we don't hit the API on every keystroke.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setCommitted({ search, categoryId: category });
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [search, category]);
+
+  const fetchProducts = useCallback(async (filters: { search: string; categoryId: string }) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filters.search.trim()) params.set("search", filters.search.trim());
+      if (filters.categoryId) params.set("categoryId", filters.categoryId);
+
+      const res = await fetch(`/api/products?${params.toString()}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Không tải được danh sách sản phẩm");
+      setDisplayedProducts(data.products);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không tải được danh sách sản phẩm");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Skip the very first run: the server already rendered the default
+  // (unfiltered-by-search, first-tab) view via `products`.
+  const isFirstRun = useRef(true);
+  useEffect(() => {
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
+      return;
+    }
+    fetchProducts(committed);
+  }, [committed, fetchProducts]);
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -44,13 +102,11 @@ export function CatalogClient({
     router.refresh();
   }
 
-  const filtered = useMemo(() => {
-    return products.filter((p) => {
-      const matchesCategory = category === "all" || p.categoryId === category;
-      const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase().trim());
-      return matchesCategory && matchesSearch;
-    });
-  }, [products, category, search]);
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of products) counts.set(p.categoryId, (counts.get(p.categoryId) ?? 0) + 1);
+    return counts;
+  }, [products]);
 
   const cartLines: CartLine[] = useMemo(() => {
     return Object.entries(cart)
@@ -63,10 +119,6 @@ export function CatalogClient({
 
   const totalItems = cartLines.reduce((sum, l) => sum + l.quantity, 0);
 
-  function addToCart(productId: string) {
-    setCart((prev) => ({ ...prev, [productId]: (prev[productId] ?? 0) + 1 }));
-  }
-
   function updateQuantity(productId: string, quantity: number) {
     setCart((prev) => {
       if (quantity <= 0) {
@@ -78,8 +130,35 @@ export function CatalogClient({
     });
   }
 
+  function toggleSelected(productId: string, checked: boolean) {
+    updateQuantity(productId, checked ? 1 : 0);
+  }
+
   function clearCart() {
     setCart({});
+  }
+
+  const selectedInViewCount = displayedProducts.filter((p) => cart[p.id] !== undefined).length;
+  const allVisibleSelected =
+    displayedProducts.length > 0 && selectedInViewCount === displayedProducts.length;
+
+  function toggleSelectAllVisible() {
+    setCart((prev) => {
+      const next = { ...prev };
+      if (allVisibleSelected) {
+        displayedProducts.forEach((p) => delete next[p.id]);
+      } else {
+        displayedProducts.forEach((p) => {
+          if (next[p.id] === undefined) next[p.id] = 1;
+        });
+      }
+      return next;
+    });
+  }
+
+  function retailPriceVnd(product: Product) {
+    const retailUsd = computePricesUsd(product.priceUsd, pricingSettings).retailUsd;
+    return usdToVnd(retailUsd, pricingSettings.usdToVndRate);
   }
 
   return (
@@ -112,6 +191,11 @@ export function CatalogClient({
                 </span>
               ) : null}
             </Button>
+            <Button variant="ghost" size="icon" title="Tài khoản" asChild>
+              <a href="/account">
+                <UserCircle className="h-4 w-4" />
+              </a>
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -125,76 +209,156 @@ export function CatalogClient({
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6">
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-xs">
-            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Tìm thiết bị..."
-              className="pl-8"
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <CategoryChip label="Tất cả" active={category === "all"} onClick={() => setCategory("all")} />
-            {categories.map((c) => (
-              <CategoryChip
-                key={c.id}
-                label={c.name}
-                active={category === c.id}
-                onClick={() => setCategory(c.id)}
-              />
-            ))}
-          </div>
+        <div className="relative mb-4 w-full sm:max-w-xs">
+          <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Tìm theo tên sản phẩm hoặc model..."
+            className="pl-8"
+          />
         </div>
 
-        {filtered.length === 0 ? (
-          <p className="py-16 text-center text-muted-foreground">
-            Không tìm thấy thiết bị phù hợp.
+        <div className="mb-2 flex gap-1 overflow-x-auto border-b">
+          {categories.map((c) => (
+            <TabButton
+              key={c.id}
+              label={c.name}
+              count={categoryCounts.get(c.id) ?? 0}
+              active={category === c.id}
+              onClick={() => setCategory(c.id)}
+            />
+          ))}
+        </div>
+
+        <div className="mb-4 flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm text-foreground">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <p>
+            Mặc định đã chọn tất cả sản phẩm để gửi yêu cầu báo giá. Nhấn vào từng tab để lựa
+            chọn những sản phẩm cần nhận báo giá, bỏ chọn nếu bạn không cần.
           </p>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
-            {filtered.map((product) => (
-              <Card key={product.id} className="flex flex-col overflow-hidden">
-                <div className="relative aspect-square w-full bg-slate-100">
-                  <Image
-                    src={product.image}
-                    alt={product.name}
-                    fill
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                    className="object-cover"
-                  />
-                </div>
-                <CardContent className="flex flex-1 flex-col gap-2 p-3">
-                  <Badge variant="outline" className="w-fit text-[10px]">
-                    {product.categoryName}
-                  </Badge>
-                  <p className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-tight">
-                    {product.name}
-                  </p>
-                  <p className="text-sm font-bold text-primary">{formatUSD(product.priceUsd)}</p>
-                  <Button
-                    size="sm"
-                    className="mt-auto"
-                    onClick={() => addToCart(product.id)}
-                  >
-                    Thêm vào yêu cầu
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+        </div>
+
+        <Card>
+          <CardContent className="p-0">
+            <div className="max-h-[65vh] overflow-auto">
+              <table className="w-full min-w-[640px] text-sm">
+                <thead>
+                  <tr className="sticky top-0 z-10 border-b bg-slate-50 text-left text-xs text-muted-foreground">
+                    <th className="w-10 px-3 py-2 font-medium">
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        disabled={displayedProducts.length === 0}
+                        onChange={toggleSelectAllVisible}
+                        className="h-4 w-4 rounded border-input accent-primary"
+                      />
+                    </th>
+                    <th className="w-16 px-3 py-2 font-medium"></th>
+                    <th className="px-3 py-2 font-medium">Model</th>
+                    <th className="px-3 py-2 font-medium">Tên sản phẩm</th>
+                    <th className="px-3 py-2 font-medium">Loại</th>
+                    <th className="px-3 py-2 text-right font-medium">Giá bán lẻ</th>
+                    <th className="w-24 px-3 py-2 text-center font-medium">Số lượng</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={7} className="px-3 py-10 text-center text-muted-foreground">
+                        <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+                      </td>
+                    </tr>
+                  ) : displayedProducts.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-3 py-10 text-center text-muted-foreground">
+                        Không tìm thấy thiết bị phù hợp.
+                      </td>
+                    </tr>
+                  ) : (
+                    displayedProducts.map((product) => {
+                      const checked = cart[product.id] !== undefined;
+                      return (
+                        <tr
+                          key={product.id}
+                          className={cn(
+                            "border-b last:border-0 hover:bg-accent/30",
+                            checked && "bg-primary/10 font-bold text-foreground"
+                          )}
+                        >
+                          <td className="px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => toggleSelected(product.id, e.target.checked)}
+                              className="h-4 w-4 rounded border-input accent-primary"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImage({ src: product.image, alt: product.name })}
+                              className="relative block h-12 w-12 shrink-0 overflow-hidden rounded bg-slate-100 transition-opacity hover:opacity-80"
+                            >
+                              <Image src={product.image} alt={product.name} fill className="object-cover" />
+                            </button>
+                          </td>
+                          <td className="px-3 py-2 text-muted-foreground">{product.model}</td>
+                          <td className="max-w-[280px] px-3 py-2 font-medium">
+                            <span className="line-clamp-2">{product.name}</span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <Badge variant="outline" className="text-[10px]">
+                              {product.categoryName}
+                            </Badge>
+                          </td>
+                          <td className="px-3 py-2 text-right font-semibold text-primary">
+                            {formatVND(retailPriceVnd(product))}
+                          </td>
+                          <td className="px-3 py-2">
+                            <Input
+                              type="number"
+                              min={1}
+                              value={cart[product.id] ?? 1}
+                              disabled={!checked}
+                              onChange={(e) =>
+                                updateQuantity(product.id, Math.max(1, Number(e.target.value) || 1))
+                              }
+                              className="h-8 w-16 text-center mx-auto"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="mt-4 flex justify-center sm:justify-end">
+          <Button size="lg" onClick={() => setCartOpen(true)}>
+            <ShoppingCart className="mr-2 h-4 w-4" />
+            Gửi yêu cầu báo giá
+            {totalItems > 0 ? (
+              <span className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-bold text-destructive-foreground">
+                {totalItems}
+              </span>
+            ) : null}
+          </Button>
+        </div>
       </main>
 
       <QuoteCartDialog
         open={cartOpen}
         onOpenChange={setCartOpen}
         cartLines={cartLines}
-        onUpdateQuantity={updateQuantity}
         onClearCart={clearCart}
         defaultName={customerName}
         defaultEmail={customerEmail}
+        defaultPhone={customerPhone}
+        defaultCompany={customerCompany}
       />
 
       {totalItems > 0 && !cartOpen ? (
@@ -205,16 +369,29 @@ export function CatalogClient({
           <ShoppingCart className="h-4 w-4" /> {totalItems} thiết bị
         </button>
       ) : null}
+
+      <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogTitle className="sr-only">{previewImage?.alt ?? "Ảnh sản phẩm"}</DialogTitle>
+          {previewImage ? (
+            <div className="relative h-[70vh] w-full">
+              <Image src={previewImage.src} alt={previewImage.alt} fill sizes="90vw" className="object-contain" />
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function CategoryChip({
+function TabButton({
   label,
+  count,
   active,
   onClick,
 }: {
   label: string;
+  count: number;
   active: boolean;
   onClick: () => void;
 }) {
@@ -222,13 +399,16 @@ function CategoryChip({
     <button
       onClick={onClick}
       className={cn(
-        "whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+        "whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors",
         active
-          ? "border-primary bg-primary text-primary-foreground"
-          : "border-border bg-white text-foreground hover:bg-accent"
+          ? "border-primary text-primary"
+          : "border-transparent text-muted-foreground hover:text-foreground"
       )}
     >
-      {label}
+      {label}{" "}
+      <span className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-bold text-destructive-foreground">
+        {count}
+      </span>
     </button>
   );
 }

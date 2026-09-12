@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Pencil, PackageCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -21,25 +21,53 @@ export function QuoteCartDialog({
   open,
   onOpenChange,
   cartLines,
-  onUpdateQuantity,
   onClearCart,
   defaultName,
   defaultEmail,
+  defaultPhone,
+  defaultCompany,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   cartLines: CartLine[];
-  onUpdateQuantity: (productId: string, quantity: number) => void;
   onClearCart: () => void;
   defaultName: string;
   defaultEmail: string;
+  defaultPhone: string;
+  defaultCompany: string;
 }) {
+  const router = useRouter();
   const [name, setName] = useState(defaultName);
   const [email, setEmail] = useState(defaultEmail);
-  const [phone, setPhone] = useState("");
-  const [company, setCompany] = useState("");
+  const [phone, setPhone] = useState(defaultPhone);
+  const [company, setCompany] = useState(defaultCompany);
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // Re-sync if the saved profile info changes (e.g. after a successful send).
+  useEffect(() => {
+    if (open) {
+      setName(defaultName);
+      setEmail(defaultEmail);
+      setPhone(defaultPhone);
+      setCompany(defaultCompany);
+    }
+    // Only needs to run when the dialog opens with fresh defaults.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Warn if the customer tries to close/reload the tab mid-submit, since the
+  // server is generating a PDF and sending an email at that point.
+  useEffect(() => {
+    if (!submitting) return;
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [submitting]);
+
+  const totalItems = cartLines.reduce((sum, l) => sum + l.quantity, 0);
 
   async function handleSubmit() {
     if (cartLines.length === 0) {
@@ -67,6 +95,8 @@ export function QuoteCartDialog({
             model: l.product.model,
             name: l.product.name,
             image: l.product.image,
+            categoryId: l.product.categoryId,
+            categoryName: l.product.categoryName,
             quantity: l.quantity,
             price: l.product.priceUsd,
           })),
@@ -82,6 +112,7 @@ export function QuoteCartDialog({
       onClearCart();
       setNote("");
       onOpenChange(false);
+      router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gửi yêu cầu thất bại");
     } finally {
@@ -90,101 +121,67 @@ export function QuoteCartDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+    <Dialog open={open} onOpenChange={(next) => !submitting && onOpenChange(next)}>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Yêu cầu báo giá ({cartLines.length} thiết bị)</DialogTitle>
+          <DialogTitle>Gửi yêu cầu báo giá</DialogTitle>
         </DialogHeader>
 
-        {cartLines.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            Chưa có thiết bị nào trong yêu cầu. Hãy chọn thiết bị từ catalog.
-          </p>
-        ) : (
-          <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
-            {cartLines.map((line) => (
-              <div key={line.product.id} className="flex items-center gap-3 rounded-md border p-2">
-                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-slate-100">
-                  <Image src={line.product.image} alt={line.product.name} fill className="object-cover" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{line.product.name}</p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    className="h-7 w-7"
-                    onClick={() => onUpdateQuantity(line.product.id, line.quantity - 1)}
-                  >
-                    <Minus className="h-3 w-3" />
-                  </Button>
-                  <span className="w-6 text-center text-sm">{line.quantity}</span>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    className="h-7 w-7"
-                    onClick={() => onUpdateQuantity(line.product.id, line.quantity + 1)}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 text-destructive"
-                    onClick={() => onUpdateQuantity(line.product.id, 0)}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+        {submitting ? (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-lg bg-white/90 p-6 text-center backdrop-blur-sm">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="font-medium">Đang gửi yêu cầu báo giá...</p>
+            <p className="text-sm text-muted-foreground">
+              Vui lòng không tắt hoặc rời khỏi trang cho đến khi gửi xong.
+            </p>
           </div>
-        )}
-
-        {cartLines.length > 0 ? (
-          <>
-            <div className="grid grid-cols-1 gap-3 border-t pt-3 sm:grid-cols-2">
-              <div className="space-y-1">
-                <Label htmlFor="quote-name">Họ tên *</Label>
-                <Input id="quote-name" value={name} onChange={(e) => setName(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="quote-phone">Số điện thoại *</Label>
-                <Input id="quote-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="quote-email">Email *</Label>
-                <Input
-                  id="quote-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="quote-company">Công ty / Phòng gym (không bắt buộc)</Label>
-                <Input
-                  id="quote-company"
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                />
-              </div>
-              <div className="col-span-full space-y-1">
-                <Label htmlFor="quote-note">Ghi chú</Label>
-                <Textarea
-                  id="quote-note"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="Ví dụ: cần lắp đặt trước 30/9, số lượng phòng tập..."
-                />
-              </div>
-            </div>
-          </>
         ) : null}
+
+        <div className="flex items-center justify-between gap-3 rounded-md border bg-accent/40 p-3">
+          <div className="flex items-center gap-2">
+            <PackageCheck className="h-5 w-5 text-primary" />
+            <p className="text-sm">
+              Báo giá cho <span className="font-semibold">{totalItems}</span> thiết bị đã chọn
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={submitting}
+            onClick={() => onOpenChange(false)}
+          >
+            <Pencil className="mr-1 h-3.5 w-3.5" /> Chỉnh sửa
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label htmlFor="quote-name">Họ tên *</Label>
+            <Input id="quote-name" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="quote-phone">Số điện thoại *</Label>
+            <Input id="quote-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </div>
+          <div className="col-span-full space-y-1">
+            <Label htmlFor="quote-email">Email *</Label>
+            <Input id="quote-email" type="email" value={email} disabled />
+          </div>
+          <div className="col-span-full space-y-1">
+            <Label htmlFor="quote-company">Công ty / Phòng gym (không bắt buộc)</Label>
+            <Input id="quote-company" value={company} onChange={(e) => setCompany(e.target.value)} />
+          </div>
+          <div className="col-span-full space-y-1">
+            <Label htmlFor="quote-note">Ghi chú</Label>
+            <Textarea
+              id="quote-note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Ví dụ: cần lắp đặt trước 30/9, số lượng phòng tập..."
+            />
+          </div>
+        </div>
 
         <DialogFooter>
           <Button

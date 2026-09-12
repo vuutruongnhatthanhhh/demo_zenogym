@@ -176,5 +176,483 @@
     "quotedNote": "Ưu đãi lắp đặt trong tháng này",
     "quotedAt": "2026-08-30T16:48:11.893Z",
     "sentAt": "2026-08-30T16:48:23.464Z"
+  },
+  {
+    "id": "2b22f1f6-002e-4f80-8624-3678560abf94",
+    "code": "ZG-2026-0003",
+    "customerName": "Nhật Thanh user1",
+    "customerEmail": "nhatthanh28012002@gmail.com",
+    "customerPhone": "0911622262",
+    "companyName": "GYM DRAGON",
+    "note": "Báo giá trong hôm nay giúp mình",
+    "items": [
+      {
+        "productId": "b9be4560-c638-4586-9152-d3757fde6c4c",
+        "model": "ZF2102",
+        "name": "40 Kg Adjustable Dumbbell",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/38addaf1-a2aa-45f0-9e2f-21e97e24da95.webp",
+        "quantity": 1,
+        "price": 98
+      },
+      {
+        "productId": "26bcb8e2-ae33-4965-a068-c4ed4c8cacb9",
+        "model": "ZF2101",
+        "name": "24 Kg Adjustable Dumbbell",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/7c402649-c633-4a21-9af7-870750fdd4c7.webp",
+        "quantity": 1,
+        "price": 68
+      },
+      {
+        "productId": "8b086653-4906-4354-8882-0d6575ba0770",
+        "model": "WG02",
+        "name": "Adjustable Cast Iron Kettlebell",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/2ddcd5de-da38-444d-9e17-fa9a1be1ada3.webp",
+        "quantity": 1,
+        "price": 30
+      },
+      {
+        "productId": "23732f73-07c4-4f32-9043-5d39674d4296",
+        "model": "ZF2202",
+        "name": "32 Kg Adjustable Dumbbell",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/6369bde8-5b2e-4edf-892e-6e09a8c0b512.webp",
+        "quantity": 1,
+        "price": 78
+      },
+      {
+        "productId": "c5832e05-f7f8-46d6-a1f9-d98a52401bd0",
+        "model": "ZF2201",
+        "name": "20 Kg Adjustable Dumbbell",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/e6101387-6ffe-452b-9845-0e9124d61512.webp",
+        "quantity": 1,
+        "price": 58
+      },
+      {
+        "productId": "edde537a-8033-40f6-8213-408999934f66",
+        "model": "P1010",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/286eb5f9-34cc-428d-9ef0-a685b77b6c3d.webp",
+        "quantity": 1,
+        "price": 600
+      },
+      {
+        "productId": "bee14ed8-3e54-489e-9129-72ff3936716f",
+        "model": "T17",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/ff80671c-7a2d-4e76-a249-b581b6f2d1d6.webp",
+        "quantity": 1,
+        "price": 650
+      },
+      {
+        "productId": "4b849614-41a0-4a1c-b6c8-6018245b79ac",
+        "model": "T15",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/7115aa15-bbe0-423d-9fcf-70b3a8915445.webp",
+        "quantity": 1,
+        "price": 680
+      },
+      {
+        "productId": "a6550ae6-8f20-46bc-8c4c-56635439a5fa",
+        "model": "T13",
+        "name": "Commercial Treadmill (21.5inch mirror )",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/1ccd587b-861b-41c2-91e1-fe0c639dbc17.webp",
+        "quantity": 1,
+        "price": 680
+      },
+      {
+        "productId": "ba39bd52-470c-446d-9698-752af8c58842",
+        "model": "T12",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/1572f578-21f4-43f6-96a1-451a5cfc9787.webp",
+        "quantity": 1,
+        "price": 650
+      },
+      {
+        "productId": "e7abda43-d1df-4719-b7d1-0ea7e64dc815",
+        "model": "T11",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/41df2cb0-275f-4676-90f2-cd2b1690e4cf.webp",
+        "quantity": 1,
+        "price": 680
+      },
+      {
+        "productId": "cbf25c4b-9490-4b8e-8b95-44e5a0ee3b14",
+        "model": "T10",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/19dbf4a0-661e-491e-ac61-b74777d094f5.webp",
+        "quantity": 1,
+        "price": 680
+      },
+      {
+        "productId": "6c462ec1-88ee-4a7e-93bc-b5d31982c78b",
+        "model": "T9",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/cdc7acad-eb8a-4a23-93bc-f174db4c5032.webp",
+        "quantity": 1,
+        "price": 600
+      },
+      {
+        "productId": "0cc460a5-8037-4052-9f51-558f1229c805",
+        "model": "T8",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/59f6cf34-99e7-40c3-a1a0-4406bfd59852.webp",
+        "quantity": 1,
+        "price": 680
+      },
+      {
+        "productId": "34a915bf-6531-486c-ae7f-4f442e894a14",
+        "model": "T7",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/50110396-96e5-45b2-947e-e65ad3aa84b2.webp",
+        "quantity": 1,
+        "price": 900
+      },
+      {
+        "productId": "e4a468af-53c2-44e0-a23d-33e7374cf8b7",
+        "model": "T6",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/5176b28c-82aa-4b8a-b910-33525925f606.webp",
+        "quantity": 1,
+        "price": 780
+      },
+      {
+        "productId": "fabeb196-5ce2-4361-9a88-7892e4317acc",
+        "model": "T5",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/ec2d3e0b-8c84-4784-8a27-5c0d059abf16.webp",
+        "quantity": 1,
+        "price": 750
+      },
+      {
+        "productId": "cca81dcc-7630-4f55-81b2-a3b14ba80a46",
+        "model": "T4",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/2a449e98-0441-409d-8742-4954887382b0.webp",
+        "quantity": 1,
+        "price": 600
+      },
+      {
+        "productId": "311ec490-5239-47f0-80c4-d278c5576fc1",
+        "model": "T2",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/54eee987-c5cf-47cd-9912-6d197f48f428.webp",
+        "quantity": 1,
+        "price": 600
+      },
+      {
+        "productId": "2c1f3c67-e39b-472d-bd7b-646b7a80eb60",
+        "model": "T1",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/0c7be92a-96cf-4ad2-9868-9d8970c8db76.webp",
+        "quantity": 1,
+        "price": 680
+      }
+    ],
+    "status": "new",
+    "createdAt": "2026-09-12T03:10:45.158Z"
+  },
+  {
+    "id": "fcbdb443-75b5-412e-9a62-f9af68566f00",
+    "code": "ZG-2026-0004",
+    "customerName": "Nhật Thanh user1",
+    "customerEmail": "nhatthanh28012002@gmail.com",
+    "customerPhone": "0911622262",
+    "companyName": "GYM DRAGON",
+    "note": "Báo giá gấp",
+    "items": [
+      {
+        "productId": "b9be4560-c638-4586-9152-d3757fde6c4c",
+        "model": "ZF2102",
+        "name": "40 Kg Adjustable Dumbbell",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/38addaf1-a2aa-45f0-9e2f-21e97e24da95.webp",
+        "quantity": 1,
+        "price": 98
+      },
+      {
+        "productId": "26bcb8e2-ae33-4965-a068-c4ed4c8cacb9",
+        "model": "ZF2101",
+        "name": "24 Kg Adjustable Dumbbell",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/7c402649-c633-4a21-9af7-870750fdd4c7.webp",
+        "quantity": 1,
+        "price": 68
+      },
+      {
+        "productId": "8b086653-4906-4354-8882-0d6575ba0770",
+        "model": "WG02",
+        "name": "Adjustable Cast Iron Kettlebell",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/2ddcd5de-da38-444d-9e17-fa9a1be1ada3.webp",
+        "quantity": 1,
+        "price": 30
+      },
+      {
+        "productId": "23732f73-07c4-4f32-9043-5d39674d4296",
+        "model": "ZF2202",
+        "name": "32 Kg Adjustable Dumbbell",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/6369bde8-5b2e-4edf-892e-6e09a8c0b512.webp",
+        "quantity": 1,
+        "price": 78
+      },
+      {
+        "productId": "c5832e05-f7f8-46d6-a1f9-d98a52401bd0",
+        "model": "ZF2201",
+        "name": "20 Kg Adjustable Dumbbell",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/e6101387-6ffe-452b-9845-0e9124d61512.webp",
+        "quantity": 1,
+        "price": 58
+      },
+      {
+        "productId": "bee14ed8-3e54-489e-9129-72ff3936716f",
+        "model": "T17",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/ff80671c-7a2d-4e76-a249-b581b6f2d1d6.webp",
+        "quantity": 3,
+        "price": 650
+      },
+      {
+        "productId": "4b849614-41a0-4a1c-b6c8-6018245b79ac",
+        "model": "T15",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/7115aa15-bbe0-423d-9fcf-70b3a8915445.webp",
+        "quantity": 3,
+        "price": 680
+      },
+      {
+        "productId": "a6550ae6-8f20-46bc-8c4c-56635439a5fa",
+        "model": "T13",
+        "name": "Commercial Treadmill (21.5inch mirror )",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/1ccd587b-861b-41c2-91e1-fe0c639dbc17.webp",
+        "quantity": 1,
+        "price": 680
+      },
+      {
+        "productId": "ba39bd52-470c-446d-9698-752af8c58842",
+        "model": "T12",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/1572f578-21f4-43f6-96a1-451a5cfc9787.webp",
+        "quantity": 2,
+        "price": 650
+      },
+      {
+        "productId": "e7abda43-d1df-4719-b7d1-0ea7e64dc815",
+        "model": "T11",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/41df2cb0-275f-4676-90f2-cd2b1690e4cf.webp",
+        "quantity": 1,
+        "price": 680
+      },
+      {
+        "productId": "cbf25c4b-9490-4b8e-8b95-44e5a0ee3b14",
+        "model": "T10",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/19dbf4a0-661e-491e-ac61-b74777d094f5.webp",
+        "quantity": 1,
+        "price": 680
+      },
+      {
+        "productId": "6c462ec1-88ee-4a7e-93bc-b5d31982c78b",
+        "model": "T9",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/cdc7acad-eb8a-4a23-93bc-f174db4c5032.webp",
+        "quantity": 1,
+        "price": 600
+      },
+      {
+        "productId": "0cc460a5-8037-4052-9f51-558f1229c805",
+        "model": "T8",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/59f6cf34-99e7-40c3-a1a0-4406bfd59852.webp",
+        "quantity": 1,
+        "price": 680
+      },
+      {
+        "productId": "34a915bf-6531-486c-ae7f-4f442e894a14",
+        "model": "T7",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/50110396-96e5-45b2-947e-e65ad3aa84b2.webp",
+        "quantity": 1,
+        "price": 900
+      },
+      {
+        "productId": "e4a468af-53c2-44e0-a23d-33e7374cf8b7",
+        "model": "T6",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/5176b28c-82aa-4b8a-b910-33525925f606.webp",
+        "quantity": 1,
+        "price": 780
+      },
+      {
+        "productId": "fabeb196-5ce2-4361-9a88-7892e4317acc",
+        "model": "T5",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/ec2d3e0b-8c84-4784-8a27-5c0d059abf16.webp",
+        "quantity": 1,
+        "price": 750
+      },
+      {
+        "productId": "cca81dcc-7630-4f55-81b2-a3b14ba80a46",
+        "model": "T4",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/2a449e98-0441-409d-8742-4954887382b0.webp",
+        "quantity": 1,
+        "price": 600
+      },
+      {
+        "productId": "311ec490-5239-47f0-80c4-d278c5576fc1",
+        "model": "T2",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/54eee987-c5cf-47cd-9912-6d197f48f428.webp",
+        "quantity": 1,
+        "price": 600
+      },
+      {
+        "productId": "2c1f3c67-e39b-472d-bd7b-646b7a80eb60",
+        "model": "T1",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/0c7be92a-96cf-4ad2-9868-9d8970c8db76.webp",
+        "quantity": 1,
+        "price": 680
+      }
+    ],
+    "status": "new",
+    "createdAt": "2026-09-12T03:26:32.087Z"
+  },
+  {
+    "id": "bd9fb66a-e809-4e19-ad34-2998233d06f7",
+    "code": "ZG-2026-0005",
+    "customerName": "Nhật Thanh user1",
+    "customerEmail": "nhatthanh28012002@gmail.com",
+    "customerPhone": "0911622262",
+    "companyName": "GYM DRAGON",
+    "items": [
+      {
+        "productId": "ce2660b6-e6f3-4774-9971-e9ef595472fb",
+        "model": "P1012",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/5d65374e-e775-46cd-a325-c952656c50c8.webp",
+        "quantity": 1,
+        "price": 550
+      },
+      {
+        "productId": "edde537a-8033-40f6-8213-408999934f66",
+        "model": "P1010",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/286eb5f9-34cc-428d-9ef0-a685b77b6c3d.webp",
+        "quantity": 1,
+        "price": 600
+      },
+      {
+        "productId": "bee14ed8-3e54-489e-9129-72ff3936716f",
+        "model": "T17",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/ff80671c-7a2d-4e76-a249-b581b6f2d1d6.webp",
+        "quantity": 1,
+        "price": 650
+      },
+      {
+        "productId": "4b849614-41a0-4a1c-b6c8-6018245b79ac",
+        "model": "T15",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/7115aa15-bbe0-423d-9fcf-70b3a8915445.webp",
+        "quantity": 1,
+        "price": 680
+      },
+      {
+        "productId": "a6550ae6-8f20-46bc-8c4c-56635439a5fa",
+        "model": "T13",
+        "name": "Commercial Treadmill (21.5inch mirror )",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/1ccd587b-861b-41c2-91e1-fe0c639dbc17.webp",
+        "quantity": 1,
+        "price": 680
+      },
+      {
+        "productId": "ba39bd52-470c-446d-9698-752af8c58842",
+        "model": "T12",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/1572f578-21f4-43f6-96a1-451a5cfc9787.webp",
+        "quantity": 1,
+        "price": 650
+      },
+      {
+        "productId": "e7abda43-d1df-4719-b7d1-0ea7e64dc815",
+        "model": "T11",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/41df2cb0-275f-4676-90f2-cd2b1690e4cf.webp",
+        "quantity": 1,
+        "price": 680
+      },
+      {
+        "productId": "cbf25c4b-9490-4b8e-8b95-44e5a0ee3b14",
+        "model": "T10",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/19dbf4a0-661e-491e-ac61-b74777d094f5.webp",
+        "quantity": 1,
+        "price": 680
+      },
+      {
+        "productId": "6c462ec1-88ee-4a7e-93bc-b5d31982c78b",
+        "model": "T9",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/cdc7acad-eb8a-4a23-93bc-f174db4c5032.webp",
+        "quantity": 1,
+        "price": 600
+      },
+      {
+        "productId": "0cc460a5-8037-4052-9f51-558f1229c805",
+        "model": "T8",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/59f6cf34-99e7-40c3-a1a0-4406bfd59852.webp",
+        "quantity": 1,
+        "price": 680
+      },
+      {
+        "productId": "34a915bf-6531-486c-ae7f-4f442e894a14",
+        "model": "T7",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/50110396-96e5-45b2-947e-e65ad3aa84b2.webp",
+        "quantity": 1,
+        "price": 900
+      },
+      {
+        "productId": "e4a468af-53c2-44e0-a23d-33e7374cf8b7",
+        "model": "T6",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/5176b28c-82aa-4b8a-b910-33525925f606.webp",
+        "quantity": 1,
+        "price": 780
+      },
+      {
+        "productId": "fabeb196-5ce2-4361-9a88-7892e4317acc",
+        "model": "T5",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/ec2d3e0b-8c84-4784-8a27-5c0d059abf16.webp",
+        "quantity": 1,
+        "price": 750
+      },
+      {
+        "productId": "cca81dcc-7630-4f55-81b2-a3b14ba80a46",
+        "model": "T4",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/2a449e98-0441-409d-8742-4954887382b0.webp",
+        "quantity": 1,
+        "price": 600
+      },
+      {
+        "productId": "311ec490-5239-47f0-80c4-d278c5576fc1",
+        "model": "T2",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/54eee987-c5cf-47cd-9912-6d197f48f428.webp",
+        "quantity": 1,
+        "price": 600
+      },
+      {
+        "productId": "2c1f3c67-e39b-472d-bd7b-646b7a80eb60",
+        "model": "T1",
+        "name": "Commercial Treadmill",
+        "image": "https://qxcfubcarxtnpizblgnt.supabase.co/storage/v1/object/public/product-images/0c7be92a-96cf-4ad2-9868-9d8970c8db76.webp",
+        "quantity": 1,
+        "price": 680
+      }
+    ],
+    "status": "new",
+    "createdAt": "2026-09-12T03:35:34.169Z"
   }
 ]

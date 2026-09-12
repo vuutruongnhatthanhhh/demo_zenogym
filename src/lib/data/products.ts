@@ -47,13 +47,25 @@ export async function getAllProducts(): Promise<Product[]> {
   return (data ?? []).map(mapProduct);
 }
 
-export async function getAvailableProducts(): Promise<Product[]> {
+export interface AvailableProductFilters {
+  search?: string;
+  categoryId?: string;
+}
+
+export async function getAvailableProducts(
+  filters: AvailableProductFilters = {}
+): Promise<Product[]> {
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("products")
-    .select(SELECT)
-    .eq("available", true)
-    .order("created_at", { ascending: false });
+  let query = admin.from("products").select(SELECT).eq("available", true);
+
+  const term = filters.search?.trim();
+  if (term) {
+    const pattern = toIlikePattern(term);
+    query = query.or(`name.ilike.${pattern},model.ilike.${pattern}`);
+  }
+  if (filters.categoryId) query = query.eq("category_id", filters.categoryId);
+
+  const { data, error } = await query.order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapProduct);
 }

@@ -12,12 +12,11 @@ Font.register({
   ],
 });
 
-function formatUsd(value: number) {
-  return new Intl.NumberFormat("en-US", {
+function formatVnd(value: number) {
+  return new Intl.NumberFormat("vi-VN", {
     style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
+    currency: "VND",
+    maximumFractionDigits: 0,
   }).format(value);
 }
 
@@ -166,8 +165,8 @@ export function QuoteDocument({ quote, items }: QuoteDocumentProps) {
               </View>
               <Text style={styles.colName}>{item.name}</Text>
               <Text style={styles.colQty}>{item.quantity}</Text>
-              <Text style={styles.colUnit}>{formatUsd(item.unitPrice)}</Text>
-              <Text style={styles.colTotal}>{formatUsd(item.unitPrice * item.quantity)}</Text>
+              <Text style={styles.colUnit}>{formatVnd(item.unitPrice)}</Text>
+              <Text style={styles.colTotal}>{formatVnd(item.unitPrice * item.quantity)}</Text>
             </View>
           ))}
         </View>
@@ -175,7 +174,7 @@ export function QuoteDocument({ quote, items }: QuoteDocumentProps) {
         <View style={styles.totalsBox}>
           <View style={styles.grandTotalRow}>
             <Text style={styles.grandTotalLabel}>Tổng cộng</Text>
-            <Text style={styles.grandTotalValue}>{formatUsd(total)}</Text>
+            <Text style={styles.grandTotalValue}>{formatVnd(total)}</Text>
           </View>
         </View>
 

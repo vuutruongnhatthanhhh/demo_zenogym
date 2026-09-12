@@ -8,7 +8,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { markQuoteSent, saveQuotePricing } from "@/lib/data/quotes";
 import { getMissingRequiredEnv } from "@/lib/env";
 import { getTransporter, MAIL_FROM } from "@/lib/mailer";
-import { formatUSD } from "@/lib/utils";
+import { formatVND } from "@/lib/utils";
 import { QuoteDocument } from "@/lib/pdf/quote-document";
 import type { QuoteLineItem } from "@/lib/types";
 
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
         <h2 style="color:#1d4ed8;">Cảm ơn ${saved.customerName} đã quan tâm ZenoGym!</h2>
         <p>Đính kèm là bản báo giá chi tiết <strong>${saved.code}</strong> cho các thiết bị bạn đã yêu cầu.</p>
-        <p><strong>Tổng cộng:</strong> ${formatUSD(total)}</p>
+        <p><strong>Tổng cộng:</strong> ${formatVND(total)}</p>
         ${note ? `<p><strong>Ghi chú từ ZenoGym:</strong> ${note}</p>` : ""}
         <p>Vui lòng phản hồi email này nếu bạn cần điều chỉnh hoặc có bất kỳ câu hỏi nào.</p>
         <p style="margin-top:24px;color:#64748b;">Trân trọng,<br/>Đội ngũ ZenoGym</p>

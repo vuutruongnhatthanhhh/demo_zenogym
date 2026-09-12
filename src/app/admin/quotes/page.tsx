@@ -2,7 +2,9 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { getAllQuotes } from "@/lib/data/quotes";
-import { formatUSD, formatDate } from "@/lib/utils";
+import { getPricingSettings } from "@/lib/data/pricing-settings";
+import { usdToVnd } from "@/lib/pricing";
+import { formatVND, formatDate } from "@/lib/utils";
 
 const STATUS_LABEL: Record<string, string> = {
   new: "Yêu cầu mới",
@@ -17,7 +19,7 @@ const STATUS_VARIANT: Record<string, "secondary" | "outline" | "success"> = {
 };
 
 export default async function AdminQuotesPage() {
-  const quotes = await getAllQuotes();
+  const [quotes, pricingSettings] = await Promise.all([getAllQuotes(), getPricingSettings()]);
 
   return (
     <div className="space-y-4">
@@ -31,7 +33,9 @@ export default async function AdminQuotesPage() {
       ) : (
         <div className="space-y-2">
           {quotes.map((q) => {
-            const retailTotal = q.items.reduce((s, i) => s + i.price * i.quantity, 0);
+            const retailTotalUsd = q.items.reduce((s, i) => s + i.price * i.quantity, 0);
+            const previewTotal =
+              q.quotedTotal ?? usdToVnd(retailTotalUsd, pricingSettings.usdToVndRate);
             return (
               <Link key={q.id} href={`/admin/quotes/${q.id}`}>
                 <Card className="transition-colors hover:bg-accent/30">
@@ -45,7 +49,7 @@ export default async function AdminQuotesPage() {
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {formatDate(q.createdAt)} · {q.items.length} thiết bị · Tạm tính{" "}
-                        {formatUSD(q.quotedTotal ?? retailTotal)}
+                        {formatVND(previewTotal)}
                       </p>
                     </div>
                     <Badge variant={STATUS_VARIANT[q.status]}>{STATUS_LABEL[q.status]}</Badge>

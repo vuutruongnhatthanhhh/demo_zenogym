@@ -38,7 +38,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (pathname.startsWith("/catalog") && !user) {
+  if ((pathname.startsWith("/catalog") || pathname.startsWith("/account")) && !user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
@@ -46,5 +46,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/catalog/:path*"],
+  matcher: ["/admin/:path*", "/catalog/:path*", "/account/:path*"],
 };

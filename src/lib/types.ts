@@ -36,6 +36,8 @@ export interface QuoteRequestItem {
   model: string;
   name: string;
   image: string;
+  categoryId: string;
+  categoryName: string;
   quantity: number;
   price: number;
 }

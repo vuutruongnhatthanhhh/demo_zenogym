@@ -42,7 +42,10 @@ export async function GET(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Vui lòng đăng nhập" }, { status: 401 });
   }
-  return NextResponse.json({ products: await getAvailableProducts() });
+
+  const search = params.get("search") ?? undefined;
+  const categoryId = params.get("categoryId") ?? undefined;
+  return NextResponse.json({ products: await getAvailableProducts({ search, categoryId }) });
 }
 
 export async function POST(req: NextRequest) {

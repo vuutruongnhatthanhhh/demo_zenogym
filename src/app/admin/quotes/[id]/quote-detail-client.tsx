@@ -1,18 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, Eye, Percent, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatUSD, formatDate } from "@/lib/utils";
-import type { QuoteLineItem, QuoteRequest } from "@/lib/types";
+import { cn, formatVND, formatDate } from "@/lib/utils";
+import { computePricesUsd, usdToVnd, type PricingSettings } from "@/lib/pricing";
+import type { QuoteLineItem, QuoteRequest, QuoteRequestItem } from "@/lib/types";
 
 const STATUS_LABEL: Record<string, string> = {
   new: "Yêu cầu mới",
@@ -26,25 +27,94 @@ const STATUS_VARIANT: Record<string, "secondary" | "outline" | "success"> = {
   sent: "success",
 };
 
-function buildInitialLines(quote: QuoteRequest): QuoteLineItem[] {
-  if (quote.quotedItems && quote.quotedItems.length > 0) return quote.quotedItems;
-  return quote.items.map((item) => ({
-    productId: item.productId,
-    name: item.name,
-    image: item.image,
-    quantity: item.quantity,
-    unitPrice: item.price,
-  }));
+// Quotes created before category snapshots were added to QuoteRequestItem
+// have no categoryId/categoryName; group those under one fallback tab
+// instead of a blank/mismatched tab.
+const UNCATEGORIZED_ID = "uncategorized";
+
+// vi-VN's thousands separator is "." (e.g. 4.381.580), which is what admins
+// expect to see/type for VND amounts.
+function formatThousands(value: number) {
+  return new Intl.NumberFormat("vi-VN").format(value);
 }
 
-export function QuoteDetailClient({ quote: initialQuote }: { quote: QuoteRequest }) {
+function parseThousands(value: string) {
+  const digits = value.replace(/\D/g, "");
+  return digits ? Number(digits) : 0;
+}
+
+function buildInitialLines(quote: QuoteRequest, pricingSettings: PricingSettings): QuoteLineItem[] {
+  if (quote.quotedItems && quote.quotedItems.length > 0) return quote.quotedItems;
+  return quote.items.map((item) => {
+    const wholesaleUsd = computePricesUsd(item.price, pricingSettings).wholesaleUsd;
+    return {
+      productId: item.productId,
+      name: item.name,
+      image: item.image,
+      quantity: item.quantity,
+      unitPrice: Math.round(usdToVnd(wholesaleUsd, pricingSettings.usdToVndRate)),
+    };
+  });
+}
+
+export function QuoteDetailClient({
+  quote: initialQuote,
+  pricingSettings,
+}: {
+  quote: QuoteRequest;
+  pricingSettings: PricingSettings;
+}) {
   const [quote, setQuote] = useState(initialQuote);
-  const [lines, setLines] = useState<QuoteLineItem[]>(() => buildInitialLines(initialQuote));
+  const [lines, setLines] = useState<QuoteLineItem[]>(() =>
+    buildInitialLines(initialQuote, pricingSettings)
+  );
   const [note, setNote] = useState(initialQuote.quotedNote ?? "");
-  const [saving, setSaving] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
   const [sending, setSending] = useState(false);
 
+  const originalByProductId = useMemo(() => {
+    const map = new Map<string, QuoteRequestItem>();
+    quote.items.forEach((item) => map.set(item.productId, item));
+    return map;
+  }, [quote.items]);
+
+  function lineCategory(productId: string) {
+    const original = originalByProductId.get(productId);
+    return {
+      id: original?.categoryId || UNCATEGORIZED_ID,
+      name: original?.categoryName || "Chưa phân loại",
+    };
+  }
+
+  const tabs = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; count: number }>();
+    for (const line of lines) {
+      const category = lineCategory(line.productId);
+      const existing = map.get(category.id);
+      if (existing) existing.count += 1;
+      else map.set(category.id, { id: category.id, name: category.name, count: 1 });
+    }
+    return Array.from(map.values());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines, originalByProductId]);
+
+  const [activeCategory, setActiveCategory] = useState<string>(() => tabs[0]?.id ?? "");
+  const currentTab = activeCategory || tabs[0]?.id || "";
+
+  const visibleLines = lines
+    .map((line, idx) => ({ line, idx }))
+    .filter(({ line }) => lineCategory(line.productId).id === currentTab);
+
   const total = lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
+
+  const totalCost = lines.reduce((sum, l) => {
+    const original = originalByProductId.get(l.productId);
+    if (!original) return sum;
+    const costUsd = computePricesUsd(original.price, pricingSettings).costUsd;
+    return sum + usdToVnd(costUsd, pricingSettings.usdToVndRate) * l.quantity;
+  }, 0);
+  const profit = total - totalCost;
+  const profitPercent = totalCost > 0 ? (profit / totalCost) * 100 : 0;
 
   function updateLine(index: number, patch: Partial<QuoteLineItem>) {
     setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
@@ -54,30 +124,30 @@ export function QuoteDetailClient({ quote: initialQuote }: { quote: QuoteRequest
     setLines((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function applyPreset(index: number, price: number) {
-    updateLine(index, { unitPrice: price });
-  }
-
-  async function handleSaveDraft() {
+  async function handlePreview() {
     if (lines.length === 0) {
       toast.error("Danh sách sản phẩm trống");
       return;
     }
-    setSaving(true);
+    setPreviewing(true);
     try {
-      const res = await fetch(`/api/quotes/${quote.id}`, {
-        method: "PATCH",
+      const res = await fetch(`/api/quotes/${quote.id}/preview`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items: lines, note }),
       });
-      if (!res.ok) throw new Error("Lưu thất bại");
-      const data = await res.json();
-      setQuote(data.quote);
-      toast.success("Đã lưu báo giá nháp");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Xem trước thất bại");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Có lỗi xảy ra");
     } finally {
-      setSaving(false);
+      setPreviewing(false);
     }
   }
 
@@ -87,7 +157,7 @@ export function QuoteDetailClient({ quote: initialQuote }: { quote: QuoteRequest
       return;
     }
     const confirmed = confirm(
-      `Gửi báo giá PDF qua email cho ${quote.customerEmail}?\nTổng tiền: ${formatUSD(total)}`
+      `Gửi báo giá PDF qua email cho ${quote.customerEmail}?\nTổng tiền: ${formatVND(total)}`
     );
     if (!confirmed) return;
 
@@ -151,68 +221,114 @@ export function QuoteDetailClient({ quote: initialQuote }: { quote: QuoteRequest
           <CardTitle className="text-base">Chỉnh sửa báo giá</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {lines.map((line, idx) => {
-            const original = quote.items.find((i) => i.productId === line.productId);
-            return (
-              <div key={`${line.productId}-${idx}`} className="rounded-md border p-3">
-                <div className="flex items-start gap-3">
-                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded bg-slate-100">
-                    <Image src={line.image} alt={line.name} fill className="object-cover" />
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <p className="truncate text-sm font-medium">{line.name}</p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex items-center gap-1">
-                        <Label className="text-xs text-muted-foreground">SL</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={line.quantity}
-                          onChange={(e) =>
-                            updateLine(idx, { quantity: Math.max(1, Number(e.target.value)) })
-                          }
-                          className="h-8 w-16"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Label className="text-xs text-muted-foreground">Đơn giá báo khách</Label>
-                        <Input
-                          type="number"
-                          value={line.unitPrice}
-                          onChange={(e) => updateLine(idx, { unitPrice: Number(e.target.value) })}
-                          className="h-8 w-36"
-                        />
-                      </div>
-                      {original ? (
-                        <button
-                          type="button"
-                          onClick={() => applyPreset(idx, original.price)}
-                          className="rounded-full border px-2 py-0.5 text-[11px] hover:bg-accent"
-                        >
-                          Giá đề xuất {formatUSD(original.price)}
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <p className="text-sm font-semibold">{formatUSD(line.unitPrice * line.quantity)}</p>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 text-destructive"
-                      onClick={() => removeLine(idx)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
+            <p>
+              Giá sỉ đang tính = Giá nhà máy +{" "}
+              <span className="font-semibold text-primary">{pricingSettings.wholesaleMarkupPercent}%</span>
+            </p>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/admin/pricing-settings">
+                <Percent className="mr-1 h-3.5 w-3.5" /> Chỉnh cấu hình giá
+              </Link>
+            </Button>
+          </div>
 
-          <div className="flex justify-end border-t pt-3">
+          <div className="flex gap-1 overflow-x-auto border-b">
+            {tabs.map((tab) => (
+              <TabButton
+                key={tab.id}
+                label={tab.name}
+                count={tab.count}
+                active={currentTab === tab.id}
+                onClick={() => setActiveCategory(tab.id)}
+              />
+            ))}
+          </div>
+
+          <div className="overflow-hidden rounded-lg border">
+            <div className="max-h-[55vh] overflow-auto">
+              <table className="w-full min-w-[860px] text-sm">
+                <thead>
+                  <tr className="sticky top-0 z-10 border-b bg-slate-50 text-left text-xs text-muted-foreground">
+                    <th className="w-16 px-3 py-2 font-medium"></th>
+                    <th className="px-3 py-2 font-medium">Model</th>
+                    <th className="w-32 px-3 py-2 text-right font-medium">Giá sỉ</th>
+                    <th className="px-3 py-2 text-right font-medium">Giá vốn</th>
+                    <th className="px-3 py-2 text-right font-medium">Giá lẻ</th>
+                    <th className="px-3 py-2 font-medium">Tên sản phẩm</th>
+                    <th className="w-20 px-3 py-2 text-center font-medium">SL</th>
+                    <th className="px-3 py-2 text-right font-medium">Thành tiền</th>
+                    <th className="w-10 px-3 py-2 font-medium"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleLines.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">
+                        Không có sản phẩm nào trong loại này.
+                      </td>
+                    </tr>
+                  ) : (
+                    visibleLines.map(({ line, idx }) => {
+                      const original = originalByProductId.get(line.productId);
+                      const prices = original ? computePricesUsd(original.price, pricingSettings) : null;
+                      return (
+                        <tr key={`${line.productId}-${idx}`} className="border-b last:border-0 hover:bg-accent/30">
+                          <td className="px-3 py-2">
+                            <div className="relative h-12 w-12 overflow-hidden rounded bg-slate-100">
+                              <Image src={line.image} alt={line.name} fill className="object-cover" />
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-muted-foreground">{original?.model ?? "-"}</td>
+                          <td className="px-3 py-2">
+                            <Input
+                              type="text"
+                              inputMode="numeric"
+                              value={formatThousands(line.unitPrice)}
+                              onChange={(e) =>
+                                updateLine(idx, { unitPrice: parseThousands(e.target.value) })
+                              }
+                              className="h-8 w-28 text-right"
+                            />
+                          </td>
+                          <td className="px-3 py-2 text-right text-muted-foreground">
+                            {prices ? formatVND(usdToVnd(prices.costUsd, pricingSettings.usdToVndRate)) : "-"}
+                          </td>
+                          <td className="px-3 py-2 text-right text-muted-foreground">
+                            {prices ? formatVND(usdToVnd(prices.retailUsd, pricingSettings.usdToVndRate)) : "-"}
+                          </td>
+                          <td className="max-w-[220px] px-3 py-2 font-medium">
+                            <span className="line-clamp-2">{line.name}</span>
+                          </td>
+                          <td className="px-3 py-2 text-center">{line.quantity}</td>
+                          <td className="px-3 py-2 text-right font-semibold text-primary">
+                            {formatVND(line.unitPrice * line.quantity)}
+                          </td>
+                          <td className="px-3 py-2">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-destructive"
+                              onClick={() => removeLine(idx)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-1 border-t pt-3">
             <p className="text-lg font-bold">
-              Tổng cộng: <span className="text-primary">{formatUSD(total)}</span>
+              Tổng cộng (giá sỉ): <span className="text-primary">{formatVND(total)}</span>
+            </p>
+            <p className={cn("text-sm", profit >= 0 ? "text-success" : "text-destructive")}>
+              Tiền lời so với giá vốn: {formatVND(profit)} ({profitPercent.toFixed(1)}%)
             </p>
           </div>
 
@@ -222,8 +338,9 @@ export function QuoteDetailClient({ quote: initialQuote }: { quote: QuoteRequest
           </div>
 
           <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
-            <Button variant="outline" onClick={handleSaveDraft} disabled={saving}>
-              {saving ? "Đang lưu..." : "Lưu nháp"}
+            <Button variant="outline" onClick={handlePreview} disabled={previewing}>
+              <Eye className="mr-1 h-4 w-4" />
+              {previewing ? "Đang tạo PDF..." : "Xem trước PDF"}
             </Button>
             <Button onClick={handleSend} disabled={sending}>
               {sending ? "Đang gửi..." : quote.status === "sent" ? "Gửi lại báo giá (PDF)" : "Gửi báo giá cho khách (PDF)"}
@@ -237,5 +354,35 @@ export function QuoteDetailClient({ quote: initialQuote }: { quote: QuoteRequest
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function TabButton({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+        active
+          ? "border-primary text-primary"
+          : "border-transparent text-muted-foreground hover:text-foreground"
+      )}
+    >
+      {label}{" "}
+      <span className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-bold text-destructive-foreground">
+        {count}
+      </span>
+    </button>
   );
 }
