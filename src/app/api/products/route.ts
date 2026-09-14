@@ -39,10 +39,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ...result, pricingSettings });
   }
 
-  if (!user) {
-    return NextResponse.json({ error: "Vui lòng đăng nhập" }, { status: 401 });
-  }
-
+  // Public: the customer-facing catalog no longer requires a session.
   const search = params.get("search") ?? undefined;
   const categoryId = params.get("categoryId") ?? undefined;
   return NextResponse.json({ products: await getAvailableProducts({ search, categoryId }) });

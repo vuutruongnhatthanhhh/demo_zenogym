@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Dumbbell, FileText, Clock, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { getCurrentUser } from "@/lib/auth";
 import { getAllProducts } from "@/lib/data/products";
 import { getAllQuotes } from "@/lib/data/quotes";
 import { formatDate } from "@/lib/utils";
@@ -19,7 +21,13 @@ const STATUS_VARIANT: Record<string, "secondary" | "outline" | "success"> = {
 };
 
 export default async function AdminDashboardPage() {
-  const [products, quotes] = await Promise.all([getAllProducts(), getAllQuotes()]);
+  const user = await getCurrentUser();
+  if (!user || user.role !== "admin") redirect("/login");
+
+  const [products, quotes] = await Promise.all([
+    getAllProducts(),
+    getAllQuotes(user.id, user.isSuperAdmin),
+  ]);
   const newCount = quotes.filter((q) => q.status === "new").length;
   const sentCount = quotes.filter((q) => q.status === "sent").length;
 

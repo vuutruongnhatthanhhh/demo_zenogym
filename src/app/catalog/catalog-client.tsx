@@ -30,6 +30,7 @@ export function CatalogClient({
   customerPhone,
   customerCompany,
   isAdmin,
+  linkCode,
 }: {
   products: Product[];
   categories: Category[];
@@ -39,6 +40,7 @@ export function CatalogClient({
   customerPhone: string;
   customerCompany: string;
   isAdmin: boolean;
+  linkCode?: string;
 }) {
   const router = useRouter();
   const [category, setCategory] = useState<string>(() => categories[0]?.id ?? "");
@@ -191,19 +193,18 @@ export function CatalogClient({
                 </span>
               ) : null}
             </Button>
-            <Button variant="ghost" size="icon" title="Tài khoản" asChild>
-              <a href="/account">
-                <UserCircle className="h-4 w-4" />
-              </a>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              title="Đăng xuất"
-              onClick={handleSignOut}
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+            {isAdmin ? (
+              <>
+                <Button variant="ghost" size="icon" title="Tài khoản" asChild>
+                  <a href="/account">
+                    <UserCircle className="h-4 w-4" />
+                  </a>
+                </Button>
+                <Button variant="ghost" size="icon" title="Đăng xuất" onClick={handleSignOut}>
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </>
+            ) : null}
           </div>
         </div>
       </header>
@@ -359,6 +360,7 @@ export function CatalogClient({
         defaultEmail={customerEmail}
         defaultPhone={customerPhone}
         defaultCompany={customerCompany}
+        linkCode={linkCode}
       />
 
       {totalItems > 0 && !cartOpen ? (

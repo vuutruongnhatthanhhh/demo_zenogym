@@ -2,7 +2,17 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Dumbbell, FileText, LogOut, Store, Tags, Factory, Percent } from "lucide-react";
+import {
+  LayoutDashboard,
+  Dumbbell,
+  FileText,
+  LogOut,
+  Store,
+  Tags,
+  Factory,
+  Percent,
+  Users,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
@@ -15,9 +25,20 @@ const links = [
   { href: "/admin/quotes", label: "Yêu cầu báo giá", icon: FileText },
 ];
 
-export function AdminSidebar() {
+export function AdminSidebar({
+  name,
+  email,
+  isSuperAdmin,
+}: {
+  name: string;
+  email: string;
+  isSuperAdmin: boolean;
+}) {
   const pathname = usePathname();
   const router = useRouter();
+  const visibleLinks = isSuperAdmin
+    ? [...links, { href: "/admin/accounts", label: "Quản lý tài khoản", icon: Users }]
+    : links;
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -33,7 +54,7 @@ export function AdminSidebar() {
         <p className="text-xs text-muted-foreground">Bảng quản trị</p>
       </div>
       <nav className="flex flex-1 flex-row gap-1 overflow-x-auto px-2 pb-2 md:flex-col md:overflow-visible">
-        {links.map((link) => {
+        {visibleLinks.map((link) => {
           const active = link.exact ? pathname === link.href : pathname.startsWith(link.href);
           const Icon = link.icon;
           return (
@@ -50,6 +71,15 @@ export function AdminSidebar() {
           );
         })}
       </nav>
+      <div className="border-t p-3">
+        <p className="truncate text-sm font-medium text-foreground">{name}</p>
+        <p className="truncate text-xs text-muted-foreground">{email}</p>
+        {isSuperAdmin ? (
+          <span className="mt-1 inline-block rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-accent-foreground">
+            Super admin
+          </span>
+        ) : null}
+      </div>
       <div className="flex flex-col gap-1 border-t p-2">
         <Link
           href="/catalog"

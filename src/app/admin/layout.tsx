@@ -10,7 +10,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 md:flex-row">
-      <AdminSidebar />
+      <AdminSidebar name={user.name} email={user.email} isSuperAdmin={user.isSuperAdmin} />
       <main className="flex-1 p-4 md:p-8">{children}</main>
     </div>
   );

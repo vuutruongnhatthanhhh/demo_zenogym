@@ -16,19 +16,6 @@ async function renderTemplate(name: string, context: Record<string, unknown>) {
   return template(context);
 }
 
-export async function sendVerificationEmail(to: string, name: string, verifyUrl: string) {
-  const subject = "Xác nhận email đăng ký tài khoản ZenoGym";
-  const html = await renderTemplate("verify-email", {
-    subject,
-    preheader: "Xác nhận email để kích hoạt tài khoản ZenoGym của bạn.",
-    name,
-    verifyUrl,
-    year: new Date().getFullYear(),
-  });
-
-  await getTransporter().sendMail({ from: MAIL_FROM, to, subject, html });
-}
-
 export async function sendPasswordResetEmail(to: string, name: string, resetUrl: string) {
   const subject = "Đặt lại mật khẩu tài khoản ZenoGym";
   const html = await renderTemplate("reset-password", {

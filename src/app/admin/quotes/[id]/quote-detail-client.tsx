@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Eye, Percent, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Eye, Percent } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,6 +70,7 @@ export function QuoteDetailClient({
   );
   const [note, setNote] = useState(initialQuote.quotedNote ?? "");
   const [previewing, setPreviewing] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [sending, setSending] = useState(false);
 
   const originalByProductId = useMemo(() => {
@@ -120,8 +121,17 @@ export function QuoteDetailClient({
     setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
   }
 
-  function removeLine(index: number) {
-    setLines((prev) => prev.filter((_, i) => i !== index));
+  async function fetchPreviewPdfBlob() {
+    const res = await fetch(`/api/quotes/${quote.id}/preview`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: lines, note }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error ?? "Tạo PDF thất bại");
+    }
+    return res.blob();
   }
 
   async function handlePreview() {
@@ -131,16 +141,7 @@ export function QuoteDetailClient({
     }
     setPreviewing(true);
     try {
-      const res = await fetch(`/api/quotes/${quote.id}/preview`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: lines, note }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? "Xem trước thất bại");
-      }
-      const blob = await res.blob();
+      const blob = await fetchPreviewPdfBlob();
       const url = URL.createObjectURL(blob);
       window.open(url, "_blank");
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
@@ -148,6 +149,29 @@ export function QuoteDetailClient({
       toast.error(err instanceof Error ? err.message : "Có lỗi xảy ra");
     } finally {
       setPreviewing(false);
+    }
+  }
+
+  async function handleDownload() {
+    if (lines.length === 0) {
+      toast.error("Danh sách sản phẩm trống");
+      return;
+    }
+    setDownloading(true);
+    try {
+      const blob = await fetchPreviewPdfBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `bao-gia-${quote.code}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Có lỗi xảy ra");
+    } finally {
+      setDownloading(false);
     }
   }
 
@@ -258,13 +282,12 @@ export function QuoteDetailClient({
                     <th className="px-3 py-2 font-medium">Tên sản phẩm</th>
                     <th className="w-20 px-3 py-2 text-center font-medium">SL</th>
                     <th className="px-3 py-2 text-right font-medium">Thành tiền</th>
-                    <th className="w-10 px-3 py-2 font-medium"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {visibleLines.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">
+                      <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
                         Không có sản phẩm nào trong loại này.
                       </td>
                     </tr>
@@ -304,16 +327,6 @@ export function QuoteDetailClient({
                           <td className="px-3 py-2 text-right font-semibold text-primary">
                             {formatVND(line.unitPrice * line.quantity)}
                           </td>
-                          <td className="px-3 py-2">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7 text-destructive"
-                              onClick={() => removeLine(idx)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </td>
                         </tr>
                       );
                     })
@@ -341,6 +354,10 @@ export function QuoteDetailClient({
             <Button variant="outline" onClick={handlePreview} disabled={previewing}>
               <Eye className="mr-1 h-4 w-4" />
               {previewing ? "Đang tạo PDF..." : "Xem trước PDF"}
+            </Button>
+            <Button variant="outline" onClick={handleDownload} disabled={downloading}>
+              <Download className="mr-1 h-4 w-4" />
+              {downloading ? "Đang tải..." : "Tải PDF"}
             </Button>
             <Button onClick={handleSend} disabled={sending}>
               {sending ? "Đang gửi..." : quote.status === "sent" ? "Gửi lại báo giá (PDF)" : "Gửi báo giá cho khách (PDF)"}

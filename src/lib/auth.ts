@@ -11,6 +11,13 @@ export interface CurrentUser {
   phone: string;
   company: string;
   role: UserRole;
+  /** Only the account matching ADMIN_EMAIL can create/block other admins. */
+  isSuperAdmin: boolean;
+}
+
+export function isSuperAdminEmail(email: string): boolean {
+  const superAdminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  return !!superAdminEmail && email.trim().toLowerCase() === superAdminEmail;
 }
 
 // Uses getUser() (not getSession()) because it revalidates the token against
@@ -37,5 +44,6 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     phone,
     company,
     role,
+    isSuperAdmin: isSuperAdminEmail(user.email ?? ""),
   };
 }

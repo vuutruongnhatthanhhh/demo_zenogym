@@ -1,15 +1,19 @@
 export const dynamic = "force-dynamic";
+// No-op on Vercel Hobby (hard-capped at 10s) but takes effect automatically
+// on Pro/Enterprise, where PDF generation + email sending has more room.
+export const maxDuration = 60;
 
 import { createElement } from "react";
 import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
 import type { ReactElement } from "react";
 import { getCurrentUser } from "@/lib/auth";
-import { markQuoteSent, saveQuotePricing } from "@/lib/data/quotes";
+import { getQuoteById, markQuoteSent, saveQuotePricing } from "@/lib/data/quotes";
 import { getMissingRequiredEnv } from "@/lib/env";
 import { getTransporter, MAIL_FROM } from "@/lib/mailer";
 import { formatVND } from "@/lib/utils";
-import { QuoteDocument } from "@/lib/pdf/quote-document";
+import { QuoteDocument, type QuoteDocumentItem } from "@/lib/pdf/quote-document";
+import { toPdfImageSource } from "@/lib/pdf/pdf-image";
 import type { QuoteLineItem } from "@/lib/types";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -27,6 +31,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
+  const existing = await getQuoteById(id, user.id, user.isSuperAdmin);
+  if (!existing) return NextResponse.json({ error: "Không tìm thấy yêu cầu" }, { status: 404 });
+
   const body = await req.json();
   const items = body.items as QuoteLineItem[];
   const note = body.note as string | undefined;
@@ -38,8 +45,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const saved = await saveQuotePricing(id, items, note);
   if (!saved) return NextResponse.json({ error: "Không tìm thấy yêu cầu" }, { status: 404 });
 
+  const pdfItems: QuoteDocumentItem[] = await Promise.all(
+    items.map(async (item) => ({ ...item, image: (await toPdfImageSource(item.image)) ?? item.image }))
+  );
   const pdfBuffer = await renderToBuffer(
-    createElement(QuoteDocument, { quote: saved, items }) as ReactElement<DocumentProps>
+    createElement(QuoteDocument, { quote: saved, items: pdfItems }) as ReactElement<DocumentProps>
   );
 
   const total = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);

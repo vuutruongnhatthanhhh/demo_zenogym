@@ -26,6 +26,7 @@ export function QuoteCartDialog({
   defaultEmail,
   defaultPhone,
   defaultCompany,
+  linkCode,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -35,6 +36,7 @@ export function QuoteCartDialog({
   defaultEmail: string;
   defaultPhone: string;
   defaultCompany: string;
+  linkCode?: string;
 }) {
   const router = useRouter();
   const [name, setName] = useState(defaultName);
@@ -90,6 +92,7 @@ export function QuoteCartDialog({
           customerPhone: phone,
           companyName: company || undefined,
           note: note || undefined,
+          linkCode,
           items: cartLines.map((l) => ({
             productId: l.product.id,
             model: l.product.model,
@@ -166,7 +169,13 @@ export function QuoteCartDialog({
           </div>
           <div className="col-span-full space-y-1">
             <Label htmlFor="quote-email">Email *</Label>
-            <Input id="quote-email" type="email" value={email} disabled />
+            <Input
+              id="quote-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ban@congty.com"
+            />
           </div>
           <div className="col-span-full space-y-1">
             <Label htmlFor="quote-company">Công ty / Phòng gym (không bắt buộc)</Label>

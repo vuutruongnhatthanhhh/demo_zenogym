@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getQuoteCodesByAdmin, getQuoteCodeByCode } from "@/lib/data/quote-codes";
 import type { QuoteLineItem, QuoteRequest, QuoteRequestItem, QuoteStatus } from "@/lib/types";
 
 interface QuoteRow {
@@ -17,6 +18,7 @@ interface QuoteRow {
   quoted_note: string | null;
   quoted_at: string | null;
   sent_at: string | null;
+  link_code: string | null;
 }
 
 function mapQuote(row: QuoteRow): QuoteRequest {
@@ -36,24 +38,58 @@ function mapQuote(row: QuoteRow): QuoteRequest {
     quotedNote: row.quoted_note ?? undefined,
     quotedAt: row.quoted_at ?? undefined,
     sentAt: row.sent_at ?? undefined,
+    linkCode: row.link_code ?? undefined,
   };
 }
 
-export async function getAllQuotes(): Promise<QuoteRequest[]> {
+// Quotes submitted through an admin's personal /bao-gia/{code} link are only
+// visible to that admin. Quotes with no link_code (the shared /catalog page,
+// no code) are only visible to the super admin (ADMIN_EMAIL) — regular
+// admins never see them, matching where the notification email goes.
+export async function getAllQuotes(adminId: string, isSuperAdmin: boolean): Promise<QuoteRequest[]> {
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("quotes")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const myCodes = await getQuoteCodesByAdmin(adminId);
+  const codeList = myCodes.map((c) => c.code);
+
+  if (codeList.length === 0 && !isSuperAdmin) return [];
+
+  let query = admin.from("quotes").select("*").order("created_at", { ascending: false });
+  if (isSuperAdmin && codeList.length > 0) {
+    query = query.or(`link_code.is.null,link_code.in.(${codeList.join(",")})`);
+  } else if (isSuperAdmin) {
+    query = query.is("link_code", null);
+  } else {
+    query = query.in("link_code", codeList);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map(mapQuote);
 }
 
-export async function getQuoteById(id: string): Promise<QuoteRequest | undefined> {
+async function fetchQuoteRaw(id: string): Promise<QuoteRequest | undefined> {
   const admin = createAdminClient();
   const { data, error } = await admin.from("quotes").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
   return data ? mapQuote(data) : undefined;
+}
+
+// Same access rule as getAllQuotes, but for a single quote (e.g. someone
+// guessing/typing another admin's quote URL directly).
+export async function getQuoteById(
+  id: string,
+  adminId: string,
+  isSuperAdmin: boolean
+): Promise<QuoteRequest | undefined> {
+  const quote = await fetchQuoteRaw(id);
+  if (!quote) return undefined;
+  if (quote.linkCode) {
+    const owner = await getQuoteCodeByCode(quote.linkCode);
+    if (!owner || owner.createdBy !== adminId) return undefined;
+  } else if (!isSuperAdmin) {
+    return undefined;
+  }
+  return quote;
 }
 
 export interface CreateQuoteInput {
@@ -63,6 +99,7 @@ export interface CreateQuoteInput {
   companyName?: string;
   note?: string;
   items: QuoteRequestItem[];
+  linkCode?: string;
 }
 
 async function nextQuoteCode(admin: ReturnType<typeof createAdminClient>): Promise<string> {
@@ -92,6 +129,7 @@ export async function createQuoteRequest(input: CreateQuoteInput): Promise<Quote
       note: input.note ?? null,
       items: input.items,
       status: "new",
+      link_code: input.linkCode ?? null,
     })
     .select("*")
     .single();
@@ -105,7 +143,7 @@ export async function saveQuotePricing(
   quotedNote?: string
 ): Promise<QuoteRequest | undefined> {
   const admin = createAdminClient();
-  const existing = await getQuoteById(id);
+  const existing = await fetchQuoteRaw(id);
   if (!existing) return undefined;
 
   const quotedTotal = quotedItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);

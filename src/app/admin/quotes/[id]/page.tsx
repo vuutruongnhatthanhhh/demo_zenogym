@@ -1,4 +1,5 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
 import { getQuoteById } from "@/lib/data/quotes";
 import { getProductById } from "@/lib/data/products";
 import { getPricingSettings } from "@/lib/data/pricing-settings";
@@ -10,7 +11,13 @@ export default async function AdminQuoteDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [quote, pricingSettings] = await Promise.all([getQuoteById(id), getPricingSettings()]);
+  const user = await getCurrentUser();
+  if (!user || user.role !== "admin") redirect("/login");
+
+  const [quote, pricingSettings] = await Promise.all([
+    getQuoteById(id, user.id, user.isSuperAdmin),
+    getPricingSettings(),
+  ]);
   if (!quote) notFound();
 
   // Quotes created before category snapshots existed on quote items have no

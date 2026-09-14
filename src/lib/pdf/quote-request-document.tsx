@@ -1,6 +1,7 @@
 import path from "node:path";
 import { Document, Page, View, Text, Image, StyleSheet, Font } from "@react-pdf/renderer";
 import type { QuoteRequest } from "@/lib/types";
+import type { PdfImageSource } from "./pdf-image";
 
 // Helvetica (react-pdf's built-in font) has no Vietnamese diacritics, so we
 // register a Unicode font that does.
@@ -40,9 +41,12 @@ const styles = StyleSheet.create({
 
 export interface QuoteRequestDocumentProps {
   quote: QuoteRequest;
+  // Resolved in parallel with `quote.items` (same index), since <Image>
+  // can't decode the WebP URLs stored on each item directly.
+  images: (PdfImageSource | null)[];
 }
 
-export function QuoteRequestDocument({ quote }: QuoteRequestDocumentProps) {
+export function QuoteRequestDocument({ quote, images }: QuoteRequestDocumentProps) {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -58,7 +62,7 @@ export function QuoteRequestDocument({ quote }: QuoteRequestDocumentProps) {
             <View style={styles.tableRow} key={`${item.productId}-${idx}`} wrap={false}>
               <Text style={styles.colIndex}>{idx + 1}</Text>
               <View style={styles.colImage}>
-                <Image style={styles.productImage} src={item.image} />
+                <Image style={styles.productImage} src={images[idx] ?? item.image} />
               </View>
               <Text style={styles.colModel}>{item.model}</Text>
               <Text style={styles.colName}>{item.name}</Text>

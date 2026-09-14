@@ -1,4 +1,7 @@
 export const dynamic = "force-dynamic";
+// No-op on Vercel Hobby (hard-capped at 10s) but takes effect automatically
+// on Pro/Enterprise, where PDF generation + email sending has more room.
+export const maxDuration = 60;
 
 import { createElement } from "react";
 import type { ReactElement } from "react";
@@ -7,10 +10,12 @@ import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createQuoteRequest, getAllQuotes } from "@/lib/data/quotes";
+import { getQuoteCodeByCode } from "@/lib/data/quote-codes";
 import { getMissingRequiredEnv } from "@/lib/env";
 import { getTransporter, MAIL_FROM } from "@/lib/mailer";
 import { formatDate } from "@/lib/utils";
 import { QuoteRequestDocument } from "@/lib/pdf/quote-request-document";
+import { toPdfImageSource } from "@/lib/pdf/pdf-image";
 import type { QuoteRequest, QuoteRequestItem } from "@/lib/types";
 
 export async function GET() {
@@ -18,24 +23,21 @@ export async function GET() {
   if (!user || user.role !== "admin") {
     return NextResponse.json({ error: "Không có quyền truy cập" }, { status: 403 });
   }
-  const quotes = await getAllQuotes();
+  const quotes = await getAllQuotes(user.id, user.isSuperAdmin);
   return NextResponse.json({ quotes });
 }
 
+// Public: customers submit a quote request without being logged in.
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Vui lòng đăng nhập" }, { status: 401 });
-  }
-
   const body = await req.json();
-  const { customerName, customerEmail, customerPhone, companyName, note, items } = body as {
+  const { customerName, customerEmail, customerPhone, companyName, note, items, linkCode } = body as {
     customerName: string;
     customerEmail: string;
     customerPhone: string;
     companyName?: string;
     note?: string;
     items: QuoteRequestItem[];
+    linkCode?: string;
   };
 
   if (!customerName || !customerEmail || !customerPhone) {
@@ -45,6 +47,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Chưa chọn thiết bị nào" }, { status: 400 });
   }
 
+  let quoteCode;
+  if (linkCode) {
+    quoteCode = await getQuoteCodeByCode(linkCode);
+    if (!quoteCode) {
+      return NextResponse.json({ error: "Link báo giá không hợp lệ" }, { status: 400 });
+    }
+  }
+
   const quote = await createQuoteRequest({
     customerName,
     customerEmail,
@@ -52,29 +62,13 @@ export async function POST(req: NextRequest) {
     companyName,
     note,
     items,
+    linkCode: quoteCode?.code,
   });
-
-  // Remember these contact details on the customer's account so the quote
-  // form comes pre-filled next time. Best-effort: never blocks the request.
-  try {
-    const admin = createAdminClient();
-    const { data: existing } = await admin.auth.admin.getUserById(user.id);
-    await admin.auth.admin.updateUserById(user.id, {
-      user_metadata: {
-        ...(existing.user?.user_metadata ?? {}),
-        full_name: customerName,
-        phone: customerPhone,
-        company: companyName ?? "",
-      },
-    });
-  } catch (err) {
-    console.error("Không lưu được thông tin khách hàng vào hồ sơ:", err);
-  }
 
   const missingEnv = getMissingRequiredEnv();
   if (missingEnv.length === 0) {
     try {
-      await sendAdminNotification(quote);
+      await sendAdminNotification(quote, quoteCode?.createdBy);
     } catch (err) {
       console.error("Không gửi được email thông báo cho admin:", err);
     }
@@ -85,18 +79,34 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ quote });
 }
 
-async function sendAdminNotification(quote: QuoteRequest) {
+// When the quote came in through an admin's personal link, notify only that
+// admin's own email — not the shared ADMIN_EMAIL inbox other admins watch.
+async function resolveNotificationRecipient(ownerAdminId?: string): Promise<string | undefined> {
+  if (!ownerAdminId) return process.env.ADMIN_EMAIL;
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin.auth.admin.getUserById(ownerAdminId);
+    return data.user?.email ?? process.env.ADMIN_EMAIL;
+  } catch (err) {
+    console.error("Không lấy được email của admin sở hữu link:", err);
+    return process.env.ADMIN_EMAIL;
+  }
+}
+
+async function sendAdminNotification(quote: QuoteRequest, ownerAdminId?: string) {
+  const images = await Promise.all(quote.items.map((item) => toPdfImageSource(item.image)));
   const pdfBuffer = await renderToBuffer(
-    createElement(QuoteRequestDocument, { quote }) as ReactElement<DocumentProps>
+    createElement(QuoteRequestDocument, { quote, images }) as ReactElement<DocumentProps>
   );
 
   const adminUrl = `${process.env.NEXT_PUBLIC_URL ?? ""}/admin/quotes/${quote.id}`;
   const totalQuantity = quote.items.reduce((sum, item) => sum + item.quantity, 0);
+  const recipient = await resolveNotificationRecipient(ownerAdminId);
 
   const transporter = getTransporter();
   await transporter.sendMail({
     from: MAIL_FROM,
-    to: process.env.ADMIN_EMAIL,
+    to: recipient,
     subject: `🏋️ Yêu cầu báo giá của ${quote.customerName} - ${formatDate(quote.createdAt)}`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;">

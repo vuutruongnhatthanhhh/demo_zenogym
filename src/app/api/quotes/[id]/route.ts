@@ -11,7 +11,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Không có quyền truy cập" }, { status: 403 });
   }
   const { id } = await params;
-  const quote = await getQuoteById(id);
+  const quote = await getQuoteById(id, user.id, user.isSuperAdmin);
   if (!quote) return NextResponse.json({ error: "Không tìm thấy yêu cầu" }, { status: 404 });
   return NextResponse.json({ quote });
 }
@@ -22,6 +22,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Không có quyền truy cập" }, { status: 403 });
   }
   const { id } = await params;
+  const existing = await getQuoteById(id, user.id, user.isSuperAdmin);
+  if (!existing) return NextResponse.json({ error: "Không tìm thấy yêu cầu" }, { status: 404 });
+
   const body = await req.json();
   const items = body.items as QuoteLineItem[];
   const note = body.note as string | undefined;

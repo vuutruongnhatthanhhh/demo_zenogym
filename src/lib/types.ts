@@ -66,6 +66,15 @@ export interface QuoteRequest {
   quotedNote?: string;
   quotedAt?: string;
   sentAt?: string;
+  /** Set when submitted through an admin's personal /bao-gia/{code} link. */
+  linkCode?: string;
+}
+
+export interface QuoteCode {
+  id: string;
+  code: string;
+  createdBy: string;
+  createdAt: string;
 }
 
 export type UserRole = "admin" | "customer";

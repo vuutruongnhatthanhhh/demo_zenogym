@@ -38,7 +38,9 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if ((pathname.startsWith("/catalog") || pathname.startsWith("/account")) && !user) {
+  // /catalog and /bao-gia/[code] are public — customers no longer need an
+  // account to browse the catalog and send a quote request.
+  if (pathname.startsWith("/account") && !user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
