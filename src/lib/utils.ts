@@ -29,6 +29,10 @@ export function formatDate(iso: string) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    // Without this, formatting falls back to the server's local timezone —
+    // fine on a Vietnam-based dev machine, but Vercel's servers run in UTC,
+    // which shifted every displayed time by 7 hours in production.
+    timeZone: "Asia/Ho_Chi_Minh",
   }).format(new Date(iso));
 }
 

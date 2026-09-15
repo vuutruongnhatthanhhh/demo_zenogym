@@ -83,10 +83,18 @@ export interface QuoteDocumentProps {
 export function QuoteDocument({ quote, items }: QuoteDocumentProps) {
   const total = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const modelByProductId = new Map(quote.items.map((item) => [item.productId, item.model]));
-  const now = new Date();
-  const day = now.getDate();
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
+  // getDate()/getMonth()/getFullYear() read the server's local timezone,
+  // which is fine on a Vietnam-based dev machine but shifts by 7 hours on
+  // Vercel (UTC) — so pin the timezone explicitly instead.
+  const dateParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+  }).formatToParts(new Date());
+  const day = dateParts.find((p) => p.type === "day")?.value ?? "";
+  const month = dateParts.find((p) => p.type === "month")?.value ?? "";
+  const year = dateParts.find((p) => p.type === "year")?.value ?? "";
 
   return (
     <Document>
