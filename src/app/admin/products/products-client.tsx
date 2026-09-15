@@ -131,8 +131,26 @@ export function ProductsClient({
     setFormOpen(true);
   }
 
-  function handleSaved() {
-    fetchProducts(page, committed);
+  // Update local state directly instead of re-fetching the whole page, so
+  // add/edit/delete feel instant. Editing always targets a product already
+  // present in `products` (it's opened from a row in this same list), so
+  // only genuinely new products hit the "insert" branch below — and only
+  // when we can be sure where they belong (page 1, no filters that might
+  // exclude them).
+  function handleSaved(product: Product) {
+    const isNew = !products.some((p) => p.id === product.id);
+
+    setProducts((prev) => {
+      if (!isNew) return prev.map((p) => (p.id === product.id ? product : p));
+      if (page !== 1 || hasActiveFilters) return prev;
+      return [product, ...prev].slice(0, pageSize);
+    });
+
+    if (isNew) {
+      const newTotal = total + 1;
+      setTotal(newTotal);
+      setTotalPages(Math.max(1, Math.ceil(newTotal / pageSize)));
+    }
   }
 
   async function handleDelete(product: Product) {
@@ -143,12 +161,19 @@ export function ProductsClient({
       return;
     }
     toast.success("Đã xóa sản phẩm");
-    const nextPage = products.length === 1 && page > 1 ? page - 1 : page;
-    if (nextPage === page) {
-      fetchProducts(page, committed);
-    } else {
-      setPage(nextPage);
+
+    const remaining = products.filter((p) => p.id !== product.id);
+    if (remaining.length === 0 && page > 1) {
+      // Nothing left on this page and there's an earlier page — its data
+      // isn't loaded locally, so this one case still needs a fetch.
+      setPage(page - 1);
+      return;
     }
+
+    setProducts(remaining);
+    const newTotal = Math.max(0, total - 1);
+    setTotal(newTotal);
+    setTotalPages(Math.max(1, Math.ceil(newTotal / pageSize)));
   }
 
   const hasActiveFilters = search || categoryId !== ALL || factoryId !== ALL || minPrice || maxPrice;

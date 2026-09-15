@@ -5,9 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
 import { getAllQuotes } from "@/lib/data/quotes";
 import { getOrCreateQuoteCodeForAdmin } from "@/lib/data/quote-codes";
-import { getPricingSettings } from "@/lib/data/pricing-settings";
-import { usdToVnd } from "@/lib/pricing";
-import { formatVND, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { QuoteCodesPanel } from "./quote-codes-panel";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -26,10 +24,9 @@ export default async function AdminQuotesPage() {
   const user = await getCurrentUser();
   if (!user || user.role !== "admin") redirect("/login");
 
-  const [quotes, quoteCode, pricingSettings] = await Promise.all([
+  const [quotes, quoteCode] = await Promise.all([
     getAllQuotes(user.id, user.isSuperAdmin),
     getOrCreateQuoteCodeForAdmin(user.id),
-    getPricingSettings(),
   ]);
 
   return (
@@ -46,9 +43,6 @@ export default async function AdminQuotesPage() {
       ) : (
         <div className="space-y-2">
           {quotes.map((q) => {
-            const retailTotalUsd = q.items.reduce((s, i) => s + i.price * i.quantity, 0);
-            const previewTotal =
-              q.quotedTotal ?? usdToVnd(retailTotalUsd, pricingSettings.usdToVndRate);
             return (
               <Link key={q.id} href={`/admin/quotes/${q.id}`}>
                 <Card className="transition-colors hover:bg-accent/30">
@@ -66,8 +60,7 @@ export default async function AdminQuotesPage() {
                         {q.customerPhone} · {q.customerEmail}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {formatDate(q.createdAt)} · {q.items.length} thiết bị · Tạm tính{" "}
-                        {formatVND(previewTotal)}
+                        {formatDate(q.createdAt)} · {q.items.length} thiết bị
                       </p>
                     </div>
                     <Badge variant={STATUS_VARIANT[q.status]}>{STATUS_LABEL[q.status]}</Badge>
