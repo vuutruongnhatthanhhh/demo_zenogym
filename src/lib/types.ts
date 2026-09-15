@@ -66,6 +66,7 @@ export interface QuoteRequest {
   quotedNote?: string;
   quotedAt?: string;
   sentAt?: string;
+  sentCount: number;
   /** Set when submitted through an admin's personal /bao-gia/{code} link. */
   linkCode?: string;
 }

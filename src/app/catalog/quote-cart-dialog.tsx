@@ -21,7 +21,6 @@ export function QuoteCartDialog({
   open,
   onOpenChange,
   cartLines,
-  onClearCart,
   defaultName,
   defaultEmail,
   defaultPhone,
@@ -31,7 +30,6 @@ export function QuoteCartDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   cartLines: CartLine[];
-  onClearCart: () => void;
   defaultName: string;
   defaultEmail: string;
   defaultPhone: string;
@@ -112,7 +110,6 @@ export function QuoteCartDialog({
       }
 
       toast.success("Đã gửi yêu cầu báo giá! ZenoGym sẽ liên hệ với bạn sớm nhất.");
-      onClearCart();
       setNote("");
       onOpenChange(false);
       router.refresh();
@@ -125,7 +122,7 @@ export function QuoteCartDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !submitting && onOpenChange(next)}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Gửi yêu cầu báo giá</DialogTitle>
         </DialogHeader>

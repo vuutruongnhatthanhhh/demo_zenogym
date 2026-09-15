@@ -18,7 +18,9 @@ interface QuoteRow {
   quoted_note: string | null;
   quoted_at: string | null;
   sent_at: string | null;
+  sent_count: number;
   link_code: string | null;
+  ip: string | null;
 }
 
 function mapQuote(row: QuoteRow): QuoteRequest {
@@ -38,6 +40,7 @@ function mapQuote(row: QuoteRow): QuoteRequest {
     quotedNote: row.quoted_note ?? undefined,
     quotedAt: row.quoted_at ?? undefined,
     sentAt: row.sent_at ?? undefined,
+    sentCount: row.sent_count ?? 0,
     linkCode: row.link_code ?? undefined,
   };
 }
@@ -100,6 +103,51 @@ export interface CreateQuoteInput {
   note?: string;
   items: QuoteRequestItem[];
   linkCode?: string;
+  ip?: string;
+}
+
+const RATE_LIMIT_WINDOW_MINUTES = 10;
+const RATE_LIMIT_MAX_SUBMISSIONS = 3;
+
+// Captcha only stops bots — a human can still click "submit" repeatedly, so
+// this caps how many quote requests the same email, phone, or IP can create
+// within a short window regardless of how they were submitted.
+export async function isQuoteSubmissionRateLimited(params: {
+  email: string;
+  phone: string;
+  ip?: string;
+}): Promise<boolean> {
+  const admin = createAdminClient();
+  const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60_000).toISOString();
+
+  const checks = [
+    admin
+      .from("quotes")
+      .select("id", { count: "exact", head: true })
+      .ilike("customer_email", params.email.trim())
+      .gte("created_at", since),
+    admin
+      .from("quotes")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_phone", params.phone.trim())
+      .gte("created_at", since),
+  ];
+  if (params.ip) {
+    checks.push(
+      admin
+        .from("quotes")
+        .select("id", { count: "exact", head: true })
+        .eq("ip", params.ip)
+        .gte("created_at", since)
+    );
+  }
+
+  const results = await Promise.all(checks);
+  for (const { count, error } of results) {
+    if (error) throw error;
+    if ((count ?? 0) >= RATE_LIMIT_MAX_SUBMISSIONS) return true;
+  }
+  return false;
 }
 
 async function nextQuoteCode(admin: ReturnType<typeof createAdminClient>): Promise<string> {
@@ -130,6 +178,7 @@ export async function createQuoteRequest(input: CreateQuoteInput): Promise<Quote
       items: input.items,
       status: "new",
       link_code: input.linkCode ?? null,
+      ip: input.ip ?? null,
     })
     .select("*")
     .single();
@@ -166,9 +215,16 @@ export async function saveQuotePricing(
 
 export async function markQuoteSent(id: string): Promise<QuoteRequest | undefined> {
   const admin = createAdminClient();
+  const existing = await fetchQuoteRaw(id);
+  if (!existing) return undefined;
+
   const { data, error } = await admin
     .from("quotes")
-    .update({ status: "sent", sent_at: new Date().toISOString() })
+    .update({
+      status: "sent",
+      sent_at: new Date().toISOString(),
+      sent_count: existing.sentCount + 1,
+    })
     .eq("id", id)
     .select("*")
     .maybeSingle();

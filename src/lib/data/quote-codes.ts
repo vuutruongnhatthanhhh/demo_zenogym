@@ -22,7 +22,7 @@ function generateCode(): string {
   return Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
 }
 
-export async function createQuoteCode(createdBy: string): Promise<QuoteCode> {
+async function createQuoteCode(createdBy: string): Promise<QuoteCode> {
   const admin = createAdminClient();
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = generateCode();
@@ -46,6 +46,16 @@ export async function getQuoteCodesByAdmin(adminId: string): Promise<QuoteCode[]
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapQuoteCode);
+}
+
+// Each admin has exactly one personal quote link — created lazily the first
+// time it's needed (e.g. loading /admin/quotes) instead of via a manual
+// "create" step, since there's nothing sensitive about the link leaking that
+// would call for issuing/rotating several of them.
+export async function getOrCreateQuoteCodeForAdmin(adminId: string): Promise<QuoteCode> {
+  const existing = await getQuoteCodesByAdmin(adminId);
+  if (existing.length > 0) return existing[0];
+  return createQuoteCode(adminId);
 }
 
 export async function getQuoteCodeByCode(code: string): Promise<QuoteCode | undefined> {

@@ -23,9 +23,9 @@ export function LoginForm() {
     setLoading(true);
     const supabase = createClient();
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
 
     if (error) {
+      setLoading(false);
       const message = error.message.toLowerCase();
       if (message.includes("banned")) {
         toast.error("Tài khoản của bạn đã bị khoá");
@@ -35,6 +35,9 @@ export function LoginForm() {
       return;
     }
 
+    // Keep the button in its loading state until the redirect actually
+    // navigates away — clearing it here made the spinner stop right after
+    // sign-in while the admin page was still loading, before the transition.
     const role = (data.user?.app_metadata?.role as string | undefined) ?? "customer";
     router.push(role === "admin" ? "/admin" : "/catalog");
     router.refresh();

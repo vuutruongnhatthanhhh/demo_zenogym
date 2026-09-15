@@ -162,7 +162,7 @@ export function AccountClient({ user }: { user: CurrentUser }) {
                   placeholder="Nhập lại mật khẩu mới"
                 />
               </div>
-              <Button type="submit" variant="outline" disabled={savingPassword}>
+              <Button type="submit" disabled={savingPassword}>
                 {savingPassword && <Loader2 className="h-4 w-4 animate-spin" />}
                 Đổi mật khẩu
               </Button>

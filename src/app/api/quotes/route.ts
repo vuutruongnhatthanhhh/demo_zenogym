@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createQuoteRequest, getAllQuotes } from "@/lib/data/quotes";
+import { createQuoteRequest, getAllQuotes, isQuoteSubmissionRateLimited } from "@/lib/data/quotes";
 import { getQuoteCodeByCode } from "@/lib/data/quote-codes";
 import { getMissingRequiredEnv } from "@/lib/env";
 import { getTransporter, MAIL_FROM } from "@/lib/mailer";
@@ -47,6 +47,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Chưa chọn thiết bị nào" }, { status: 400 });
   }
 
+  const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+
+  const rateLimited = await isQuoteSubmissionRateLimited({
+    email: customerEmail,
+    phone: customerPhone,
+    ip: clientIp,
+  });
+  if (rateLimited) {
+    return NextResponse.json(
+      { error: "Bạn đã gửi quá nhiều yêu cầu, vui lòng thử lại sau ít phút" },
+      { status: 429 }
+    );
+  }
+
   let quoteCode;
   if (linkCode) {
     quoteCode = await getQuoteCodeByCode(linkCode);
@@ -63,6 +77,7 @@ export async function POST(req: NextRequest) {
     note,
     items,
     linkCode: quoteCode?.code,
+    ip: clientIp,
   });
 
   const missingEnv = getMissingRequiredEnv();

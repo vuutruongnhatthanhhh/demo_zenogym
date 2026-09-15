@@ -1,16 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Download, Eye, Percent } from "lucide-react";
+import { ArrowLeft, Download, Eye, Lock, Percent, RotateCcw, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn, formatVND, formatDate } from "@/lib/utils";
 import { computePricesUsd, usdToVnd, type PricingSettings } from "@/lib/pricing";
 import type { QuoteLineItem, QuoteRequest, QuoteRequestItem } from "@/lib/types";
@@ -38,9 +39,56 @@ function formatThousands(value: number) {
   return new Intl.NumberFormat("vi-VN").format(value);
 }
 
-function parseThousands(value: string) {
-  const digits = value.replace(/\D/g, "");
-  return digits ? Number(digits) : 0;
+// Reformatting the value on every keystroke (inserting/removing "."
+// separators) shifts digit positions out from under the cursor — deleting a
+// digit mid-number could collapse a leading zero and jump the caret to the
+// end before the admin finished editing. Showing plain, unformatted digits
+// while the field is focused sidesteps this entirely (native cursor
+// behavior just works); the "." separators only get applied once the admin
+// is done, on blur.
+function PriceInput({
+  value,
+  onChange,
+  className,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  className?: string;
+}) {
+  const [focused, setFocused] = useState(false);
+  const [display, setDisplay] = useState(() => formatThousands(value));
+
+  useEffect(() => {
+    if (!focused) setDisplay(formatThousands(value));
+  }, [value, focused]);
+
+  function handleFocus() {
+    setFocused(true);
+    setDisplay(value ? String(value) : "");
+  }
+
+  function handleBlur() {
+    setFocused(false);
+    setDisplay(formatThousands(value));
+  }
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const digits = e.target.value.replace(/\D/g, "");
+    setDisplay(digits);
+    onChange(digits ? Number(digits) : 0);
+  }
+
+  return (
+    <Input
+      type="text"
+      inputMode="numeric"
+      value={display}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      onChange={handleChange}
+      className={className}
+    />
+  );
 }
 
 function buildInitialLines(quote: QuoteRequest, pricingSettings: PricingSettings): QuoteLineItem[] {
@@ -72,6 +120,17 @@ export function QuoteDetailClient({
   const [previewing, setPreviewing] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [unlockedQtyRows, setUnlockedQtyRows] = useState<Set<number>>(() => new Set());
+  const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
+
+  function toggleQtyLock(idx: number) {
+    setUnlockedQtyRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  }
 
   const originalByProductId = useMemo(() => {
     const map = new Map<string, QuoteRequestItem>();
@@ -280,7 +339,7 @@ export function QuoteDetailClient({
                     <th className="px-3 py-2 text-right font-medium">Giá vốn</th>
                     <th className="px-3 py-2 text-right font-medium">Giá lẻ</th>
                     <th className="px-3 py-2 font-medium">Tên sản phẩm</th>
-                    <th className="w-20 px-3 py-2 text-center font-medium">SL</th>
+                    <th className="w-24 px-3 py-2 text-center font-medium">SL</th>
                     <th className="px-3 py-2 text-right font-medium">Thành tiền</th>
                   </tr>
                 </thead>
@@ -298,21 +357,39 @@ export function QuoteDetailClient({
                       return (
                         <tr key={`${line.productId}-${idx}`} className="border-b last:border-0 hover:bg-accent/30">
                           <td className="px-3 py-2">
-                            <div className="relative h-12 w-12 overflow-hidden rounded bg-slate-100">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImage({ src: line.image, alt: line.name })}
+                              className="relative block h-12 w-12 shrink-0 overflow-hidden rounded bg-slate-100 transition-opacity hover:opacity-80"
+                            >
                               <Image src={line.image} alt={line.name} fill className="object-cover" />
-                            </div>
+                            </button>
                           </td>
                           <td className="px-3 py-2 text-muted-foreground">{original?.model ?? "-"}</td>
                           <td className="px-3 py-2">
-                            <Input
-                              type="text"
-                              inputMode="numeric"
-                              value={formatThousands(line.unitPrice)}
-                              onChange={(e) =>
-                                updateLine(idx, { unitPrice: parseThousands(e.target.value) })
-                              }
-                              className="h-8 w-28 text-right"
-                            />
+                            <div className="flex items-center justify-end gap-1">
+                              <PriceInput
+                                value={line.unitPrice}
+                                onChange={(unitPrice) => updateLine(idx, { unitPrice })}
+                                className="h-8 w-28 text-right"
+                              />
+                              {prices ? (
+                                <button
+                                  type="button"
+                                  title="Đặt lại giá sỉ mặc định"
+                                  onClick={() =>
+                                    updateLine(idx, {
+                                      unitPrice: Math.round(
+                                        usdToVnd(prices.wholesaleUsd, pricingSettings.usdToVndRate)
+                                      ),
+                                    })
+                                  }
+                                  className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                                >
+                                  <RotateCcw className="h-3.5 w-3.5" />
+                                </button>
+                              ) : null}
+                            </div>
                           </td>
                           <td className="px-3 py-2 text-right text-muted-foreground">
                             {prices ? formatVND(usdToVnd(prices.costUsd, pricingSettings.usdToVndRate)) : "-"}
@@ -323,7 +400,41 @@ export function QuoteDetailClient({
                           <td className="max-w-[220px] px-3 py-2 font-medium">
                             <span className="line-clamp-2">{line.name}</span>
                           </td>
-                          <td className="px-3 py-2 text-center">{line.quantity}</td>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                type="button"
+                                title={
+                                  unlockedQtyRows.has(idx)
+                                    ? "Khóa lại số lượng"
+                                    : "Mở khóa để chỉnh số lượng"
+                                }
+                                onClick={() => toggleQtyLock(idx)}
+                                className="shrink-0 rounded p-1 text-destructive hover:bg-destructive/10"
+                              >
+                                {unlockedQtyRows.has(idx) ? (
+                                  <Unlock className="h-3.5 w-3.5" />
+                                ) : (
+                                  <Lock className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                              {unlockedQtyRows.has(idx) ? (
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  value={line.quantity}
+                                  onChange={(e) =>
+                                    updateLine(idx, {
+                                      quantity: Math.max(1, Number(e.target.value) || 1),
+                                    })
+                                  }
+                                  className="h-8 w-16 text-center"
+                                />
+                              ) : (
+                                <span>{line.quantity}</span>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-3 py-2 text-right font-semibold text-primary">
                             {formatVND(line.unitPrice * line.quantity)}
                           </td>
@@ -365,11 +476,22 @@ export function QuoteDetailClient({
           </div>
           {quote.sentAt ? (
             <p className="text-right text-xs text-muted-foreground">
-              Đã gửi lần gần nhất lúc {formatDate(quote.sentAt)}
+              Đã gửi {quote.sentCount} lần, gần nhất lúc {formatDate(quote.sentAt)}
             </p>
           ) : null}
         </CardContent>
       </Card>
+
+      <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogTitle className="sr-only">{previewImage?.alt ?? "Ảnh sản phẩm"}</DialogTitle>
+          {previewImage ? (
+            <div className="relative h-[70vh] w-full">
+              <Image src={previewImage.src} alt={previewImage.alt} fill sizes="90vw" className="object-contain" />
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

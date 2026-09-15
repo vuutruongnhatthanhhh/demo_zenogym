@@ -11,7 +11,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getQuoteById, markQuoteSent, saveQuotePricing } from "@/lib/data/quotes";
 import { getMissingRequiredEnv } from "@/lib/env";
 import { getTransporter, MAIL_FROM } from "@/lib/mailer";
-import { formatVND } from "@/lib/utils";
+import { formatDate, formatVND } from "@/lib/utils";
 import { QuoteDocument, type QuoteDocumentItem } from "@/lib/pdf/quote-document";
 import { toPdfImageSource } from "@/lib/pdf/pdf-image";
 import type { QuoteLineItem } from "@/lib/types";
@@ -55,16 +55,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const total = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const transporter = getTransporter();
 
+  const sendNumber = existing.sentCount + 1;
+  const sentAtLabel = formatDate(new Date().toISOString());
+
   await transporter.sendMail({
     from: MAIL_FROM,
     to: saved.customerEmail,
-    subject: `📄 Báo giá thiết bị gym ${saved.code} từ ZenoGym`,
+    subject: `📄 Báo giá thiết bị gym ${saved.code} từ ZenoGym (Lần ${sendNumber})`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
         <h2 style="color:#1d4ed8;">Cảm ơn ${saved.customerName} đã quan tâm ZenoGym!</h2>
         <p>Đính kèm là bản báo giá chi tiết <strong>${saved.code}</strong> cho các thiết bị bạn đã yêu cầu.</p>
         <p><strong>Tổng cộng:</strong> ${formatVND(total)}</p>
         ${note ? `<p><strong>Ghi chú từ ZenoGym:</strong> ${note}</p>` : ""}
+        <p style="color:#64748b;">Báo giá này được gửi lần ${sendNumber} lúc ${sentAtLabel}.</p>
         <p>Vui lòng phản hồi email này nếu bạn cần điều chỉnh hoặc có bất kỳ câu hỏi nào.</p>
         <p style="margin-top:24px;color:#64748b;">Trân trọng,<br/>Đội ngũ ZenoGym</p>
       </div>

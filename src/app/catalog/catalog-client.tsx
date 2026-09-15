@@ -136,10 +136,6 @@ export function CatalogClient({
     updateQuantity(productId, checked ? 1 : 0);
   }
 
-  function clearCart() {
-    setCart({});
-  }
-
   const selectedInViewCount = displayedProducts.filter((p) => cart[p.id] !== undefined).length;
   const allVisibleSelected =
     displayedProducts.length > 0 && selectedInViewCount === displayedProducts.length;
@@ -355,7 +351,6 @@ export function CatalogClient({
         open={cartOpen}
         onOpenChange={setCartOpen}
         cartLines={cartLines}
-        onClearCart={clearCart}
         defaultName={customerName}
         defaultEmail={customerEmail}
         defaultPhone={customerPhone}

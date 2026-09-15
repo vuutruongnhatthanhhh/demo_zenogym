@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Ban, CheckCircle2, Eye, EyeOff, Loader2, Plus } from "lucide-react";
+import { Ban, CheckCircle2, Eye, EyeOff, KeyRound, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import type { AdminAccount } from "@/lib/data/admin-accounts";
 
@@ -25,6 +26,10 @@ export function AccountsClient({
   const [showPassword, setShowPassword] = useState(false);
   const [creating, setCreating] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [resetTarget, setResetTarget] = useState<AdminAccount | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   async function handleCreate() {
     if (!fullName.trim() || !email.trim()) {
@@ -80,6 +85,36 @@ export function AccountsClient({
       toast.error(err instanceof Error ? err.message : "Có lỗi xảy ra");
     } finally {
       setTogglingId(null);
+    }
+  }
+
+  function openResetDialog(account: AdminAccount) {
+    setResetTarget(account);
+    setResetPassword("");
+    setShowResetPassword(false);
+  }
+
+  async function handleResetPassword() {
+    if (!resetTarget) return;
+    if (resetPassword.length < 6) {
+      toast.error("Mật khẩu phải có ít nhất 6 ký tự");
+      return;
+    }
+    setResetting(true);
+    try {
+      const res = await fetch(`/api/admin/accounts/${resetTarget.id}/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: resetPassword }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Có lỗi xảy ra");
+      toast.success(`Đã đặt lại mật khẩu cho ${resetTarget.email}`);
+      setResetTarget(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Có lỗi xảy ra");
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -162,21 +197,27 @@ export function AccountsClient({
                     {account.isBlocked ? "Đã khoá" : "Đang hoạt động"}
                   </Badge>
                   {account.id !== currentUserId ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={togglingId === account.id}
-                      onClick={() => handleToggleBlock(account)}
-                    >
-                      {togglingId === account.id ? (
-                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                      ) : account.isBlocked ? (
-                        <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                      ) : (
-                        <Ban className="mr-1 h-3.5 w-3.5" />
-                      )}
-                      {account.isBlocked ? "Mở khoá" : "Khoá"}
-                    </Button>
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => openResetDialog(account)}>
+                        <KeyRound className="mr-1 h-3.5 w-3.5" />
+                        Đặt lại mật khẩu
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={togglingId === account.id}
+                        onClick={() => handleToggleBlock(account)}
+                      >
+                        {togglingId === account.id ? (
+                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                        ) : account.isBlocked ? (
+                          <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                        ) : (
+                          <Ban className="mr-1 h-3.5 w-3.5" />
+                        )}
+                        {account.isBlocked ? "Mở khoá" : "Khoá"}
+                      </Button>
+                    </>
                   ) : null}
                 </div>
               </CardContent>
@@ -184,6 +225,46 @@ export function AccountsClient({
           ))
         )}
       </div>
+
+      <Dialog open={!!resetTarget} onOpenChange={(open) => !open && setResetTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Đặt lại mật khẩu</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Đặt mật khẩu mới cho tài khoản <strong>{resetTarget?.email}</strong>.
+            </p>
+            <div className="space-y-1">
+              <Label htmlFor="reset-password">Mật khẩu mới</Label>
+              <div className="relative">
+                <Input
+                  id="reset-password"
+                  type={showResetPassword ? "text" : "password"}
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  placeholder="Tối thiểu 6 ký tự"
+                  className="pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowResetPassword((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showResetPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleResetPassword} disabled={resetting}>
+              {resetting && <Loader2 className="h-4 w-4 animate-spin" />}
+              Đặt lại mật khẩu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

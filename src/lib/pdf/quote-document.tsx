@@ -70,7 +70,6 @@ const styles = StyleSheet.create({
   },
   grandTotalLabel: { fontSize: 11, fontWeight: 700 },
   grandTotalValue: { fontSize: 12, fontWeight: 700, color: "#1d4ed8" },
-  note: { marginTop: 12, fontSize: 9, color: "#64748b", lineHeight: 1.5 },
   noteTitle: { marginTop: 16, fontSize: 10, fontWeight: 700, color: "#0f172a" },
   noteBlock: { marginTop: 4, fontSize: 9, color: "#334155", lineHeight: 1.5 },
 });
@@ -154,8 +153,6 @@ export function QuoteDocument({ quote, items }: QuoteDocumentProps) {
             <Text style={styles.grandTotalValue}>{formatVnd(total)}</Text>
           </View>
         </View>
-
-        {quote.quotedNote ? <Text style={styles.note}>Ghi chú: {quote.quotedNote}</Text> : null}
 
         <Text style={styles.noteTitle}>NOTE:</Text>
         <Text style={styles.noteBlock}>

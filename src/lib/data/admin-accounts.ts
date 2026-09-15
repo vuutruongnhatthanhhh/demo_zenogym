@@ -66,3 +66,9 @@ export async function setAdminAccountBlocked(id: string, blocked: boolean): Prom
   });
   if (error) throw error;
 }
+
+export async function resetAdminAccountPassword(id: string, password: string): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(id, { password });
+  if (error) throw error;
+}

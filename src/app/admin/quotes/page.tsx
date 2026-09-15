@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
 import { getAllQuotes } from "@/lib/data/quotes";
-import { getQuoteCodesByAdmin } from "@/lib/data/quote-codes";
+import { getOrCreateQuoteCodeForAdmin } from "@/lib/data/quote-codes";
 import { getPricingSettings } from "@/lib/data/pricing-settings";
 import { usdToVnd } from "@/lib/pricing";
 import { formatVND, formatDate } from "@/lib/utils";
@@ -26,9 +26,9 @@ export default async function AdminQuotesPage() {
   const user = await getCurrentUser();
   if (!user || user.role !== "admin") redirect("/login");
 
-  const [quotes, codes, pricingSettings] = await Promise.all([
+  const [quotes, quoteCode, pricingSettings] = await Promise.all([
     getAllQuotes(user.id, user.isSuperAdmin),
-    getQuoteCodesByAdmin(user.id),
+    getOrCreateQuoteCodeForAdmin(user.id),
     getPricingSettings(),
   ]);
 
@@ -39,7 +39,7 @@ export default async function AdminQuotesPage() {
         <p className="text-sm text-muted-foreground">{quotes.length} yêu cầu bạn có thể xem</p>
       </div>
 
-      <QuoteCodesPanel initialCodes={codes} siteUrl={process.env.NEXT_PUBLIC_URL ?? ""} />
+      <QuoteCodesPanel code={quoteCode.code} siteUrl={process.env.NEXT_PUBLIC_URL ?? ""} />
 
       {quotes.length === 0 ? (
         <p className="text-sm text-muted-foreground">Chưa có yêu cầu báo giá nào.</p>
