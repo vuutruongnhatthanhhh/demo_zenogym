@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
 import { getQuoteCodeByCode } from "@/lib/data/quote-codes";
 import { getAvailableProducts } from "@/lib/data/products";
 import { getAllCategories } from "@/lib/data/categories";
@@ -13,7 +14,8 @@ export default async function QuoteLinkPage({ params }: { params: Promise<{ code
   const quoteCode = await getQuoteCodeByCode(code);
   if (!quoteCode) notFound();
 
-  const [products, categories, pricingSettings] = await Promise.all([
+  const [user, products, categories, pricingSettings] = await Promise.all([
+    getCurrentUser(),
     getAvailableProducts(),
     getAllCategories(),
     getPricingSettings(),
@@ -24,11 +26,13 @@ export default async function QuoteLinkPage({ params }: { params: Promise<{ code
       products={products}
       categories={categories}
       pricingSettings={pricingSettings}
-      customerName=""
-      customerEmail=""
-      customerPhone=""
-      customerCompany=""
-      isAdmin={false}
+      customerName={user?.name ?? ""}
+      customerEmail={user?.email ?? ""}
+      customerPhone={user?.phone ?? ""}
+      customerCompany={user?.company ?? ""}
+      customerAddress={user?.address ?? ""}
+      isAdmin={user?.role === "admin"}
+      isLoggedIn={!!user}
       linkCode={code}
     />
   );

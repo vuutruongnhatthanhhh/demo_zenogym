@@ -38,8 +38,9 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // /catalog and /bao-gia/[code] are public — customers no longer need an
-  // account to browse the catalog and send a quote request.
+  // /catalog and /bao-gia/[code] stay public for browsing — logging in is
+  // only required to actually submit a quote request (enforced client-side
+  // via a redirect to /login, and again server-side in the API routes).
   if (pathname.startsWith("/account") && !user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }

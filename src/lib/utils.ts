@@ -36,6 +36,13 @@ export function formatDate(iso: string) {
   }).format(new Date(iso));
 }
 
+// Only allow same-app relative paths for post-login redirects — a bare "/"
+// prefix check alone still lets "//evil.com" through (browsers treat that
+// as protocol-relative), so reject that case explicitly.
+export function isSafeRedirectPath(path: string | null): path is string {
+  return !!path && path.startsWith("/") && !path.startsWith("//");
+}
+
 export function slugify(input: string) {
   return input
     .normalize("NFD")

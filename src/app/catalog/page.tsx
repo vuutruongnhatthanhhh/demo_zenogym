@@ -25,7 +25,9 @@ export default async function CatalogPage() {
       customerEmail={user?.email ?? ""}
       customerPhone={user?.phone ?? ""}
       customerCompany={user?.company ?? ""}
+      customerAddress={user?.address ?? ""}
       isAdmin={user?.role === "admin"}
+      isLoggedIn={!!user}
     />
   );
 }

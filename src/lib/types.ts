@@ -57,6 +57,7 @@ export interface QuoteRequest {
   customerEmail: string;
   customerPhone: string;
   companyName?: string;
+  address?: string;
   note?: string;
   items: QuoteRequestItem[];
   status: QuoteStatus;
@@ -69,6 +70,10 @@ export interface QuoteRequest {
   sentCount: number;
   /** Set when submitted through an admin's personal /bao-gia/{code} link. */
   linkCode?: string;
+  /** The logged-in customer account that submitted this request, if any. */
+  customerId?: string;
+  /** How many times the customer has (re)submitted this request — "Lần N" in the admin notification email. */
+  requestCount: number;
 }
 
 export interface QuoteCode {

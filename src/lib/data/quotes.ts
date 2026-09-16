@@ -9,6 +9,7 @@ interface QuoteRow {
   customer_email: string;
   customer_phone: string;
   company_name: string | null;
+  address: string | null;
   note: string | null;
   items: QuoteRequestItem[];
   status: QuoteStatus;
@@ -21,6 +22,8 @@ interface QuoteRow {
   sent_count: number;
   link_code: string | null;
   ip: string | null;
+  customer_id: string | null;
+  request_count: number;
 }
 
 function mapQuote(row: QuoteRow): QuoteRequest {
@@ -31,6 +34,7 @@ function mapQuote(row: QuoteRow): QuoteRequest {
     customerEmail: row.customer_email,
     customerPhone: row.customer_phone,
     companyName: row.company_name ?? undefined,
+    address: row.address ?? undefined,
     note: row.note ?? undefined,
     items: row.items,
     status: row.status,
@@ -42,6 +46,8 @@ function mapQuote(row: QuoteRow): QuoteRequest {
     sentAt: row.sent_at ?? undefined,
     sentCount: row.sent_count ?? 0,
     linkCode: row.link_code ?? undefined,
+    customerId: row.customer_id ?? undefined,
+    requestCount: row.request_count ?? 1,
   };
 }
 
@@ -100,10 +106,12 @@ export interface CreateQuoteInput {
   customerEmail: string;
   customerPhone: string;
   companyName?: string;
+  address: string;
   note?: string;
   items: QuoteRequestItem[];
   linkCode?: string;
   ip?: string;
+  customerId?: string;
 }
 
 const RATE_LIMIT_WINDOW_MINUTES = 10;
@@ -174,16 +182,71 @@ export async function createQuoteRequest(input: CreateQuoteInput): Promise<Quote
       customer_email: input.customerEmail,
       customer_phone: input.customerPhone,
       company_name: input.companyName ?? null,
+      address: input.address,
       note: input.note ?? null,
       items: input.items,
       status: "new",
       link_code: input.linkCode ?? null,
       ip: input.ip ?? null,
+      customer_id: input.customerId ?? null,
     })
     .select("*")
     .single();
   if (error) throw error;
   return mapQuote(data);
+}
+
+export async function getCustomerQuotes(customerId: string): Promise<QuoteRequest[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("quotes")
+    .select("*")
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapQuote);
+}
+
+export async function getCustomerQuoteById(
+  id: string,
+  customerId: string
+): Promise<QuoteRequest | undefined> {
+  const quote = await fetchQuoteRaw(id);
+  if (!quote || quote.customerId !== customerId) return undefined;
+  return quote;
+}
+
+// Lets a customer edit the item selection on their own request and resend
+// it — bumps request_count (the "Lần N" in the admin notification email)
+// and clears any in-progress admin pricing draft, since the item list it
+// was based on no longer applies.
+export async function resubmitQuoteRequest(
+  id: string,
+  customerId: string,
+  items: QuoteRequestItem[],
+  note?: string
+): Promise<QuoteRequest | undefined> {
+  const existing = await getCustomerQuoteById(id, customerId);
+  if (!existing) return undefined;
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("quotes")
+    .update({
+      items,
+      note: note ?? null,
+      status: "new",
+      request_count: existing.requestCount + 1,
+      quoted_items: null,
+      quoted_total: null,
+      quoted_note: null,
+      quoted_at: null,
+    })
+    .eq("id", id)
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapQuote(data) : undefined;
 }
 
 export async function saveQuotePricing(

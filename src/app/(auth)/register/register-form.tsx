@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Eye, EyeOff, Loader2, MailCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,45 +13,58 @@ import { GoogleIcon } from "@/components/icons/google-icon";
 import { createClient } from "@/lib/supabase/client";
 import { isSafeRedirectPath } from "@/lib/utils";
 
-export function LoginForm() {
-  const router = useRouter();
+export function RegisterForm() {
   const searchParams = useSearchParams();
   const rawRedirect = searchParams.get("redirect");
   const redirectTo = isSafeRedirectPath(rawRedirect) ? rawRedirect : null;
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      setLoading(false);
-      const message = error.message.toLowerCase();
-      if (message.includes("banned")) {
-        toast.error("Tài khoản của bạn đã bị khoá");
-      } else if (message.includes("confirm")) {
-        toast.error("Vui lòng xác nhận email trước khi đăng nhập, kiểm tra hộp thư của bạn");
-      } else {
-        toast.error("Email hoặc mật khẩu không đúng");
-      }
+    if (!fullName.trim() || !phone.trim() || !address.trim()) {
+      toast.error("Vui lòng nhập đầy đủ họ tên, số điện thoại và địa chỉ");
+      return;
+    }
+    if (password.length < 6) {
+      toast.error("Mật khẩu phải có ít nhất 6 ký tự");
       return;
     }
 
-    // Keep the button in its loading state until the redirect actually
-    // navigates away — clearing it here made the spinner stop right after
-    // sign-in while the admin page was still loading, before the transition.
-    const role = (data.user?.app_metadata?.role as string | undefined) ?? "customer";
-    router.push(redirectTo || (role === "admin" ? "/admin" : "/catalog"));
-    router.refresh();
+    setLoading(true);
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        address: address.trim(),
+        email,
+        password,
+        redirect: redirectTo ?? undefined,
+      }),
+    });
+    setLoading(false);
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast.error(data.error ?? "Đăng ký thất bại, vui lòng thử lại");
+      return;
+    }
+
+    // No session yet — the account stays unconfirmed until the customer
+    // clicks the link in the email we just sent.
+    setAwaitingConfirmation(true);
   }
 
-  async function handleGoogleLogin() {
+  async function handleGoogleRegister() {
     setGoogleLoading(true);
     const supabase = createClient();
     const callbackUrl = new URL("/auth/callback", window.location.origin);
@@ -63,8 +76,23 @@ export function LoginForm() {
     });
     if (error) {
       setGoogleLoading(false);
-      toast.error("Đăng nhập Google thất bại");
+      toast.error("Đăng ký với Google thất bại");
     }
+  }
+
+  if (awaitingConfirmation) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
+          <MailCheck className="h-10 w-10 text-primary" />
+          <p className="font-medium">Kiểm tra email của bạn</p>
+          <p className="text-sm text-muted-foreground">
+            ZenoGym đã gửi một email xác nhận tới <strong>{email}</strong>. Bấm vào đường link trong
+            email để hoàn tất đăng ký.
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
@@ -74,7 +102,7 @@ export function LoginForm() {
           type="button"
           variant="outline"
           className="w-full"
-          onClick={handleGoogleLogin}
+          onClick={handleGoogleRegister}
           disabled={googleLoading || loading}
         >
           {googleLoading ? (
@@ -82,7 +110,7 @@ export function LoginForm() {
           ) : (
             <GoogleIcon className="h-4 w-4" />
           )}
-          Đăng nhập với Google
+          Đăng ký với Google
         </Button>
 
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -93,9 +121,39 @@ export function LoginForm() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="reg-name">Họ và tên</Label>
             <Input
-              id="email"
+              id="reg-name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Nguyễn Văn A"
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="reg-phone">Số điện thoại</Label>
+            <Input
+              id="reg-phone"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="09xxxxxxxx"
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="reg-address">Địa chỉ</Label>
+            <Input
+              id="reg-address"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="reg-email">Email</Label>
+            <Input
+              id="reg-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -104,19 +162,14 @@ export function LoginForm() {
             />
           </div>
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">Mật khẩu</Label>
-              <Link href="/forgot-password" className="text-xs font-medium text-primary hover:underline">
-                Quên mật khẩu?
-              </Link>
-            </div>
+            <Label htmlFor="reg-password">Mật khẩu</Label>
             <div className="relative">
               <Input
-                id="password"
+                id="reg-password"
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="Tối thiểu 6 ký tự"
                 required
                 className="pr-9"
               />
@@ -132,17 +185,17 @@ export function LoginForm() {
           </div>
           <Button type="submit" className="w-full" disabled={loading || googleLoading}>
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            Đăng nhập
+            Đăng ký
           </Button>
         </form>
 
         <p className="text-center text-sm text-muted-foreground">
-          Chưa có tài khoản?{" "}
+          Đã có tài khoản?{" "}
           <Link
-            href={redirectTo ? `/register?redirect=${encodeURIComponent(redirectTo)}` : "/register"}
+            href={redirectTo ? `/login?redirect=${encodeURIComponent(redirectTo)}` : "/login"}
             className="font-medium text-primary hover:underline"
           >
-            Đăng ký
+            Đăng nhập
           </Link>
         </p>
       </CardContent>

@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { LoginForm } from "./login-form";
+import { RegisterForm } from "./register-form";
 
-export default async function LoginPage() {
+export default async function RegisterPage() {
   const user = await getCurrentUser();
   if (user) {
     redirect(user.role === "admin" ? "/admin" : "/catalog");
@@ -12,13 +12,13 @@ export default async function LoginPage() {
   return (
     <div>
       <div className="mb-8 text-center">
-        <h1 className="text-2xl font-bold text-primary">Đăng nhập</h1>
+        <h1 className="text-2xl font-bold text-primary">Đăng ký tài khoản</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Đăng nhập để xem catalog thiết bị và gửi yêu cầu báo giá
+          Tạo tài khoản để gửi và theo dõi yêu cầu báo giá của bạn
         </p>
       </div>
       <Suspense>
-        <LoginForm />
+        <RegisterForm />
       </Suspense>
     </div>
   );

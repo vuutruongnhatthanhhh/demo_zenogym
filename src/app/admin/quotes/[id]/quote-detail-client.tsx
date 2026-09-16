@@ -287,6 +287,9 @@ export function QuoteDetailClient({
           <p><span className="text-muted-foreground">Họ tên: </span>{quote.customerName}</p>
           <p><span className="text-muted-foreground">Điện thoại: </span>{quote.customerPhone}</p>
           <p><span className="text-muted-foreground">Email: </span>{quote.customerEmail}</p>
+          {quote.address ? (
+            <p><span className="text-muted-foreground">Địa chỉ: </span>{quote.address}</p>
+          ) : null}
           {quote.companyName ? (
             <p><span className="text-muted-foreground">Công ty: </span>{quote.companyName}</p>
           ) : null}

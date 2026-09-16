@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,7 @@ export function AccountClient({ user }: { user: CurrentUser }) {
 
   const [fullName, setFullName] = useState(user.fullName);
   const [phone, setPhone] = useState(user.phone);
+  const [address, setAddress] = useState(user.address);
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [password, setPassword] = useState("");
@@ -35,7 +36,7 @@ export function AccountClient({ user }: { user: CurrentUser }) {
     setSavingProfile(true);
     const supabase = createClient();
     const { error } = await supabase.auth.updateUser({
-      data: { full_name: fullName.trim(), phone: phone.trim() },
+      data: { full_name: fullName.trim(), phone: phone.trim(), address: address.trim() },
     });
     setSavingProfile(false);
 
@@ -89,6 +90,15 @@ export function AccountClient({ user }: { user: CurrentUser }) {
           </p>
         </div>
 
+        {user.role === "customer" ? (
+          <Link
+            href="/account/quotes"
+            className="flex items-center gap-2 rounded-lg border bg-white px-4 py-3 text-sm font-medium text-foreground hover:bg-accent/40"
+          >
+            <FileText className="h-4 w-4 text-primary" /> Yêu cầu báo giá của tôi
+          </Link>
+        ) : null}
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Thông tin cá nhân</CardTitle>
@@ -115,6 +125,15 @@ export function AccountClient({ user }: { user: CurrentUser }) {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="09xxxxxxxx"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="account-address">Địa chỉ</Label>
+                <Input
+                  id="account-address"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
                 />
               </div>
               <Button type="submit" disabled={savingProfile}>

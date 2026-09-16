@@ -4,12 +4,35 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ShoppingCart, LogOut, LayoutDashboard, Search, Info, Loader2, UserCircle } from "lucide-react";
+import {
+  ShoppingCart,
+  LogOut,
+  LayoutDashboard,
+  Search,
+  Info,
+  Loader2,
+  UserCircle,
+  LogIn,
+  FileText,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogHeader,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatVND } from "@/lib/utils";
 import { computePricesUsd, usdToVnd, type PricingSettings } from "@/lib/pricing";
@@ -21,6 +44,16 @@ export interface CartLine {
   quantity: number;
 }
 
+// Used to carry the selected items across the redirect to /login and back,
+// since navigating away resets this component's in-memory state. This must
+// be localStorage, not sessionStorage: registering a new account requires
+// leaving to check email and clicking a confirmation link, which commonly
+// opens a new tab — sessionStorage wouldn't be visible there, but
+// localStorage is (same browser, same origin). The timestamp guards against
+// resurrecting a cart from a long-abandoned attempt.
+const PENDING_CART_KEY = "zenogym_pending_cart";
+const PENDING_CART_TTL_MS = 60 * 60 * 1000;
+
 export function CatalogClient({
   products,
   categories,
@@ -29,8 +62,11 @@ export function CatalogClient({
   customerEmail,
   customerPhone,
   customerCompany,
+  customerAddress,
   isAdmin,
+  isLoggedIn,
   linkCode,
+  resubmitQuote,
 }: {
   products: Product[];
   categories: Category[];
@@ -39,18 +75,24 @@ export function CatalogClient({
   customerEmail: string;
   customerPhone: string;
   customerCompany: string;
+  customerAddress: string;
   isAdmin: boolean;
+  isLoggedIn: boolean;
   linkCode?: string;
+  resubmitQuote?: { id: string; items: Record<string, number>; note?: string };
 }) {
   const router = useRouter();
   const [category, setCategory] = useState<string>(() => categories[0]?.id ?? "");
   const [search, setSearch] = useState("");
   // Every product starts selected (quantity 1) so the customer can simply
-  // untick what they don't want, instead of hunting for an "add" button.
+  // untick what they don't want, instead of hunting for an "add" button —
+  // unless we're editing a previously submitted request, in which case we
+  // start from exactly what was in it.
   const [cart, setCart] = useState<Record<string, number>>(() =>
-    Object.fromEntries(products.map((p) => [p.id, 1]))
+    resubmitQuote ? resubmitQuote.items : Object.fromEntries(products.map((p) => [p.id, 1]))
   );
   const [cartOpen, setCartOpen] = useState(false);
+  const [authPromptOpen, setAuthPromptOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
 
   const [committed, setCommitted] = useState({ search: "", categoryId: category });
@@ -58,6 +100,28 @@ export function CatalogClient({
     products.filter((p) => p.categoryId === category)
   );
   const [loading, setLoading] = useState(false);
+
+  // If we just came back from a login redirect, restore the cart selection
+  // that was saved before leaving and reopen the dialog so the customer can
+  // simply pick up where they left off.
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    try {
+      const raw = localStorage.getItem(PENDING_CART_KEY);
+      if (!raw) return;
+      localStorage.removeItem(PENDING_CART_KEY);
+      const saved = JSON.parse(raw) as { cart: Record<string, number>; path: string; savedAt: number };
+      const isFresh = Date.now() - saved.savedAt < PENDING_CART_TTL_MS;
+      if (isFresh && saved.path === window.location.pathname) {
+        setCart(saved.cart);
+        setCartOpen(true);
+      }
+    } catch {
+      // Ignore malformed/unavailable storage.
+    }
+    // Only relevant right after mount, once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Debounce: only commit search/tab changes 400ms after the user stops
   // typing/clicking, so we don't hit the API on every keystroke.
@@ -159,14 +223,40 @@ export function CatalogClient({
     return usdToVnd(retailUsd, pricingSettings.usdToVndRate);
   }
 
+  // Submitting a quote request requires an account — browsing doesn't. Show
+  // a prompt first instead of redirecting straight away, so the customer
+  // picks login vs. register themselves.
+  function openCart() {
+    if (!isLoggedIn) {
+      setAuthPromptOpen(true);
+      return;
+    }
+    setCartOpen(true);
+  }
+
+  // Save the current selection so it survives the round trip to /login (or
+  // /register, which needs an extra hop to confirm by email) — only once
+  // the customer actually picks one of the two options.
+  function goToAuth(path: "/login" | "/register") {
+    try {
+      localStorage.setItem(
+        PENDING_CART_KEY,
+        JSON.stringify({ cart, path: window.location.pathname, savedAt: Date.now() })
+      );
+    } catch {
+      // Ignore unavailable storage (e.g. private browsing edge cases).
+    }
+    router.push(`${path}?redirect=${encodeURIComponent(window.location.pathname)}`);
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
       <header className="sticky top-0 z-30 border-b bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
-          <div>
+          <a href="/catalog" className="block">
             <h1 className="text-lg font-bold text-primary sm:text-xl">ZenoGym</h1>
             <p className="text-xs text-muted-foreground">Catalog thiết bị tập gym</p>
-          </div>
+          </a>
           <div className="flex items-center gap-2">
             {isAdmin ? (
               <Button variant="outline" size="sm" asChild>
@@ -175,12 +265,7 @@ export function CatalogClient({
                 </a>
               </Button>
             ) : null}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCartOpen(true)}
-              className="relative"
-            >
+            <Button variant="outline" size="sm" onClick={openCart} className="relative">
               <ShoppingCart className="h-4 w-4" />
               <span className="hidden sm:inline">Yêu cầu báo giá</span>
               {totalItems > 0 ? (
@@ -189,18 +274,40 @@ export function CatalogClient({
                 </span>
               ) : null}
             </Button>
-            {isAdmin ? (
+            {isLoggedIn ? (
               <>
-                <Button variant="ghost" size="icon" title="Tài khoản" asChild>
-                  <a href="/account">
-                    <UserCircle className="h-4 w-4" />
-                  </a>
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" title="Tài khoản">
+                      <UserCircle className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <a href="/account">
+                        <UserCircle className="h-4 w-4" /> Thông tin tài khoản
+                      </a>
+                    </DropdownMenuItem>
+                    {!isAdmin ? (
+                      <DropdownMenuItem asChild>
+                        <a href="/account/quotes">
+                          <FileText className="h-4 w-4" /> Yêu cầu báo giá của tôi
+                        </a>
+                      </DropdownMenuItem>
+                    ) : null}
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button variant="ghost" size="icon" title="Đăng xuất" onClick={handleSignOut}>
                   <LogOut className="h-4 w-4" />
                 </Button>
               </>
-            ) : null}
+            ) : (
+              <Button variant="outline" size="sm" asChild>
+                <a href="/login">
+                  <LogIn className="mr-1 h-4 w-4" /> Đăng nhập
+                </a>
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -231,8 +338,9 @@ export function CatalogClient({
         <div className="mb-4 flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm text-foreground">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
           <p>
-            Mặc định đã chọn tất cả sản phẩm để gửi yêu cầu báo giá. Nhấn vào từng tab để lựa
-            chọn những sản phẩm cần nhận báo giá, bỏ chọn nếu bạn không cần.
+            {resubmitQuote
+              ? "Bạn đang chỉnh sửa yêu cầu báo giá đã gửi. Điều chỉnh sản phẩm/số lượng rồi gửi lại."
+              : "Mặc định đã chọn tất cả sản phẩm để gửi yêu cầu báo giá. Nhấn vào từng tab để lựa chọn những sản phẩm cần nhận báo giá, bỏ chọn nếu bạn không cần."}
           </p>
         </div>
 
@@ -335,9 +443,9 @@ export function CatalogClient({
         </Card>
 
         <div className="mt-4 flex justify-center sm:justify-end">
-          <Button size="lg" onClick={() => setCartOpen(true)}>
+          <Button size="lg" onClick={openCart}>
             <ShoppingCart className="mr-2 h-4 w-4" />
-            Gửi yêu cầu báo giá
+            {resubmitQuote ? "Gửi lại yêu cầu báo giá" : "Gửi yêu cầu báo giá"}
             {totalItems > 0 ? (
               <span className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-bold text-destructive-foreground">
                 {totalItems}
@@ -355,17 +463,41 @@ export function CatalogClient({
         defaultEmail={customerEmail}
         defaultPhone={customerPhone}
         defaultCompany={customerCompany}
+        defaultAddress={customerAddress}
         linkCode={linkCode}
+        isLoggedIn={isLoggedIn}
+        resubmitId={resubmitQuote?.id}
+        initialNote={resubmitQuote?.note}
       />
 
       {totalItems > 0 && !cartOpen ? (
         <button
-          onClick={() => setCartOpen(true)}
+          onClick={openCart}
           className="fixed bottom-5 right-5 z-20 flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-lg sm:hidden"
         >
           <ShoppingCart className="h-4 w-4" /> {totalItems} thiết bị
         </button>
       ) : null}
+
+      <Dialog open={authPromptOpen} onOpenChange={setAuthPromptOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Cần đăng nhập để gửi yêu cầu báo giá</DialogTitle>
+            <DialogDescription>
+              Vui lòng đăng nhập hoặc đăng ký tài khoản để gửi yêu cầu báo giá. Sản phẩm bạn đã
+              chọn sẽ được giữ nguyên.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-center">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => goToAuth("/login")}>
+              Đăng nhập
+            </Button>
+            <Button className="w-full sm:w-auto" onClick={() => goToAuth("/register")}>
+              Đăng ký
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
         <DialogContent className="max-w-2xl">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, PackageCheck, Loader2 } from "lucide-react";
+import { AlertTriangle, Pencil, PackageCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { createClient } from "@/lib/supabase/client";
 import type { CartLine } from "./catalog-client";
 
 export function QuoteCartDialog({
@@ -25,7 +26,11 @@ export function QuoteCartDialog({
   defaultEmail,
   defaultPhone,
   defaultCompany,
+  defaultAddress,
   linkCode,
+  isLoggedIn,
+  resubmitId,
+  initialNote,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -34,15 +39,22 @@ export function QuoteCartDialog({
   defaultEmail: string;
   defaultPhone: string;
   defaultCompany: string;
+  defaultAddress: string;
   linkCode?: string;
+  isLoggedIn: boolean;
+  resubmitId?: string;
+  initialNote?: string;
 }) {
   const router = useRouter();
   const [name, setName] = useState(defaultName);
   const [email, setEmail] = useState(defaultEmail);
   const [phone, setPhone] = useState(defaultPhone);
   const [company, setCompany] = useState(defaultCompany);
-  const [note, setNote] = useState("");
+  const [address, setAddress] = useState(defaultAddress);
+  const [note, setNote] = useState(initialNote ?? "");
   const [submitting, setSubmitting] = useState(false);
+
+  const isEditingRequest = !!resubmitId;
 
   // Re-sync if the saved profile info changes (e.g. after a successful send).
   useEffect(() => {
@@ -51,6 +63,7 @@ export function QuoteCartDialog({
       setEmail(defaultEmail);
       setPhone(defaultPhone);
       setCompany(defaultCompany);
+      setAddress(defaultAddress);
     }
     // Only needs to run when the dialog opens with fresh defaults.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -74,34 +87,41 @@ export function QuoteCartDialog({
       toast.error("Vui lòng chọn ít nhất một thiết bị");
       return;
     }
-    if (!name.trim() || !email.trim() || !phone.trim()) {
-      toast.error("Vui lòng nhập đầy đủ họ tên, email và số điện thoại");
+    if (!isEditingRequest && (!name.trim() || !email.trim() || !phone.trim() || !address.trim())) {
+      toast.error("Vui lòng nhập đầy đủ họ tên, email, số điện thoại và địa chỉ");
       return;
     }
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/quotes", {
-        method: "POST",
+      const items = cartLines.map((l) => ({
+        productId: l.product.id,
+        model: l.product.model,
+        name: l.product.name,
+        image: l.product.image,
+        categoryId: l.product.categoryId,
+        categoryName: l.product.categoryName,
+        quantity: l.quantity,
+        price: l.product.priceUsd,
+      }));
+
+      const res = await fetch(isEditingRequest ? `/api/quotes/${resubmitId}/resubmit` : "/api/quotes", {
+        method: isEditingRequest ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerName: name,
-          customerEmail: email,
-          customerPhone: phone,
-          companyName: company || undefined,
-          note: note || undefined,
-          linkCode,
-          items: cartLines.map((l) => ({
-            productId: l.product.id,
-            model: l.product.model,
-            name: l.product.name,
-            image: l.product.image,
-            categoryId: l.product.categoryId,
-            categoryName: l.product.categoryName,
-            quantity: l.quantity,
-            price: l.product.priceUsd,
-          })),
-        }),
+        body: JSON.stringify(
+          isEditingRequest
+            ? { items, note: note || undefined }
+            : {
+                customerName: name,
+                customerEmail: email,
+                customerPhone: phone,
+                companyName: company || undefined,
+                address,
+                note: note || undefined,
+                linkCode,
+                items,
+              }
+        ),
       });
 
       if (!res.ok) {
@@ -109,10 +129,33 @@ export function QuoteCartDialog({
         throw new Error(data.error ?? "Có lỗi xảy ra");
       }
 
-      toast.success("Đã gửi yêu cầu báo giá! ZenoGym sẽ liên hệ với bạn sớm nhất.");
-      setNote("");
+      // Best-effort: keep the account's saved profile in sync with whatever
+      // the customer just typed, so next time it's pre-filled correctly.
+      if (isLoggedIn && !isEditingRequest) {
+        const supabase = createClient();
+        await supabase.auth
+          .updateUser({
+            data: {
+              full_name: name.trim(),
+              phone: phone.trim(),
+              company: company.trim(),
+              address: address.trim(),
+            },
+          })
+          .catch(() => {});
+      }
+
+      toast.success(
+        isEditingRequest
+          ? "Đã cập nhật và gửi lại yêu cầu báo giá!"
+          : "Đã gửi yêu cầu báo giá! ZenoGym sẽ liên hệ với bạn sớm nhất."
+      );
       onOpenChange(false);
-      router.refresh();
+      if (isEditingRequest) {
+        router.push("/account/quotes");
+      } else {
+        router.refresh();
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gửi yêu cầu thất bại");
     } finally {
@@ -124,7 +167,7 @@ export function QuoteCartDialog({
     <Dialog open={open} onOpenChange={(next) => !submitting && onOpenChange(next)}>
       <DialogContent className="max-w-lg" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle>Gửi yêu cầu báo giá</DialogTitle>
+          <DialogTitle>{isEditingRequest ? "Cập nhật yêu cầu báo giá" : "Gửi yêu cầu báo giá"}</DialogTitle>
         </DialogHeader>
 
         {submitting ? (
@@ -155,14 +198,34 @@ export function QuoteCartDialog({
           </Button>
         </div>
 
+        {!isEditingRequest ? (
+          <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              Vui lòng nhập <strong>chính xác</strong> họ tên, số điện thoại và địa chỉ — các thông
+              tin này sẽ được điền vào hợp đồng báo giá gửi cho bạn.
+            </p>
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1">
             <Label htmlFor="quote-name">Họ tên *</Label>
-            <Input id="quote-name" value={name} onChange={(e) => setName(e.target.value)} />
+            <Input
+              id="quote-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={isEditingRequest}
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor="quote-phone">Số điện thoại *</Label>
-            <Input id="quote-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <Input
+              id="quote-phone"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              disabled={isEditingRequest}
+            />
           </div>
           <div className="col-span-full space-y-1">
             <Label htmlFor="quote-email">Email *</Label>
@@ -172,11 +235,27 @@ export function QuoteCartDialog({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="ban@congty.com"
+              disabled={isLoggedIn || isEditingRequest}
+            />
+          </div>
+          <div className="col-span-full space-y-1">
+            <Label htmlFor="quote-address">Địa chỉ *</Label>
+            <Input
+              id="quote-address"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
+              disabled={isEditingRequest}
             />
           </div>
           <div className="col-span-full space-y-1">
             <Label htmlFor="quote-company">Công ty / Phòng gym (không bắt buộc)</Label>
-            <Input id="quote-company" value={company} onChange={(e) => setCompany(e.target.value)} />
+            <Input
+              id="quote-company"
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+              disabled={isEditingRequest}
+            />
           </div>
           <div className="col-span-full space-y-1">
             <Label htmlFor="quote-note">Ghi chú</Label>
@@ -195,7 +274,11 @@ export function QuoteCartDialog({
             disabled={submitting || cartLines.length === 0}
             className="w-full sm:w-auto"
           >
-            {submitting ? "Đang gửi..." : "Gửi yêu cầu báo giá"}
+            {submitting
+              ? "Đang gửi..."
+              : isEditingRequest
+                ? "Cập nhật & gửi lại yêu cầu"
+                : "Gửi yêu cầu báo giá"}
           </Button>
         </DialogFooter>
       </DialogContent>

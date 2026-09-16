@@ -116,11 +116,9 @@ export function QuoteDocument({ quote, items }: QuoteDocumentProps) {
 
         <View style={styles.spacer} />
 
-        <Text style={styles.partyLineBold}>
-          BÊN MUA HÀNG (BÊN B): ........................................
-        </Text>
-        <Text style={styles.partyLine}>SĐT: ........................................</Text>
-        <Text style={styles.partyLine}>Địa chỉ: ........................................</Text>
+        <Text style={styles.partyLineBold}>BÊN MUA HÀNG (BÊN B): {quote.customerName}</Text>
+        <Text style={styles.partyLine}>SĐT: {quote.customerPhone}</Text>
+        <Text style={styles.partyLine}>Địa chỉ: {quote.address || "........................................"}</Text>
 
         <View style={styles.table}>
           <View style={styles.tableHeaderRow}>

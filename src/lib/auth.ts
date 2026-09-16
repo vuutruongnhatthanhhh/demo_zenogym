@@ -10,6 +10,7 @@ export interface CurrentUser {
   fullName: string;
   phone: string;
   company: string;
+  address: string;
   role: UserRole;
   /** Only the account matching ADMIN_EMAIL can create/block other admins. */
   isSuperAdmin: boolean;
@@ -34,6 +35,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   const fullName = (user.user_metadata?.full_name as string | undefined) ?? "";
   const phone = (user.user_metadata?.phone as string | undefined) ?? "";
   const company = (user.user_metadata?.company as string | undefined) ?? "";
+  const address = (user.user_metadata?.address as string | undefined) ?? "";
   const name = fullName || user.email || "";
 
   return {
@@ -43,6 +45,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     fullName,
     phone,
     company,
+    address,
     role,
     isSuperAdmin: isSuperAdminEmail(user.email ?? ""),
   };
