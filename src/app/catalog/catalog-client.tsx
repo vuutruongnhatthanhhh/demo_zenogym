@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   ShoppingCart,
@@ -82,6 +82,7 @@ export function CatalogClient({
   resubmitQuote?: { id: string; items: Record<string, number>; note?: string };
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [category, setCategory] = useState<string>(() => categories[0]?.id ?? "");
   const [search, setSearch] = useState("");
   // Every product starts selected (quantity 1) so the customer can simply
@@ -112,7 +113,7 @@ export function CatalogClient({
       localStorage.removeItem(PENDING_CART_KEY);
       const saved = JSON.parse(raw) as { cart: Record<string, number>; path: string; savedAt: number };
       const isFresh = Date.now() - saved.savedAt < PENDING_CART_TTL_MS;
-      if (isFresh && saved.path === window.location.pathname) {
+      if (isFresh && saved.path === pathname) {
         setCart(saved.cart);
         setCartOpen(true);
       }
@@ -239,14 +240,11 @@ export function CatalogClient({
   // the customer actually picks one of the two options.
   function goToAuth(path: "/login" | "/register") {
     try {
-      localStorage.setItem(
-        PENDING_CART_KEY,
-        JSON.stringify({ cart, path: window.location.pathname, savedAt: Date.now() })
-      );
+      localStorage.setItem(PENDING_CART_KEY, JSON.stringify({ cart, path: pathname, savedAt: Date.now() }));
     } catch {
       // Ignore unavailable storage (e.g. private browsing edge cases).
     }
-    router.push(`${path}?redirect=${encodeURIComponent(window.location.pathname)}`);
+    router.push(`${path}?redirect=${encodeURIComponent(pathname)}`);
   }
 
   return (
@@ -302,10 +300,8 @@ export function CatalogClient({
                 </Button>
               </>
             ) : (
-              <Button variant="outline" size="sm" asChild>
-                <a href="/login">
-                  <LogIn className="mr-1 h-4 w-4" /> Đăng nhập
-                </a>
+              <Button variant="outline" size="sm" onClick={() => goToAuth("/login")}>
+                <LogIn className="mr-1 h-4 w-4" /> Đăng nhập
               </Button>
             )}
           </div>
