@@ -106,7 +106,10 @@ export function CatalogClient({
   // that was saved before leaving and reopen the dialog so the customer can
   // simply pick up where they left off.
   useEffect(() => {
-    if (!isLoggedIn) return;
+    // Admins land here from time to time (browsing, testing) — never pop
+    // the customer quote form open on them, even if a stray pending cart
+    // happens to be sitting in localStorage from an earlier session.
+    if (!isLoggedIn || isAdmin) return;
     try {
       const raw = localStorage.getItem(PENDING_CART_KEY);
       if (!raw) return;

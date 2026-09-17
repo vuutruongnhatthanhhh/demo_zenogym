@@ -46,8 +46,12 @@ export function LoginForm() {
     // Keep the button in its loading state until the redirect actually
     // navigates away — clearing it here made the spinner stop right after
     // sign-in while the admin page was still loading, before the transition.
+    // Admins always land on the dashboard, ignoring any `redirect` param —
+    // otherwise an admin who happened to reach /login from the customer
+    // quote-request flow would land back on /catalog with that form
+    // reopened instead of going to /admin.
     const role = (data.user?.app_metadata?.role as string | undefined) ?? "customer";
-    router.push(redirectTo || (role === "admin" ? "/admin" : "/catalog"));
+    router.push(role === "admin" ? "/admin" : redirectTo || "/catalog");
     router.refresh();
   }
 

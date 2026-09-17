@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       const role = data.user?.app_metadata?.role;
-      const dest = redirectTo || (role === "admin" ? "/admin" : "/catalog");
+      const dest = role === "admin" ? "/admin" : redirectTo || "/catalog";
       return NextResponse.redirect(`${origin}${dest}`);
     }
   }

@@ -37,7 +37,7 @@ export function VerifyEmailForm() {
       const redirectTo = isSafeRedirectPath(rawRedirect) ? rawRedirect : null;
       const role = data.user?.app_metadata?.role as string | undefined;
       setTimeout(() => {
-        router.push(redirectTo || (role === "admin" ? "/admin" : "/catalog"));
+        router.push(role === "admin" ? "/admin" : redirectTo || "/catalog");
         router.refresh();
       }, 1500);
     }
