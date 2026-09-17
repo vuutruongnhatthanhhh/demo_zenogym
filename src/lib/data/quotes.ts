@@ -207,6 +207,16 @@ export async function getCustomerQuotes(customerId: string): Promise<QuoteReques
   return (data ?? []).map(mapQuote);
 }
 
+// Persists a one-time backfill (e.g. category/factory snapshots missing on
+// quotes created before those fields existed) so later reads — including
+// from routes that don't go through the page-level backfill, like the
+// factory PDF download — see the corrected data instead of the original gap.
+export async function updateQuoteItems(id: string, items: QuoteRequestItem[]): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin.from("quotes").update({ items }).eq("id", id);
+  if (error) throw error;
+}
+
 export async function getCustomerQuoteById(
   id: string,
   customerId: string

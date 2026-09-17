@@ -34,8 +34,12 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { createClient } from "@/lib/supabase/client";
-import { cn, formatVND } from "@/lib/utils";
-import { computePricesUsd, usdToVnd, type PricingSettings } from "@/lib/pricing";
+import { cn, formatDate, formatVND } from "@/lib/utils";
+import {
+  computePricesUsd,
+  usdToVnd,
+  type PricingSettings,
+} from "@/lib/pricing";
 import type { Category, Product } from "@/lib/types";
 import { QuoteCartDialog } from "./quote-cart-dialog";
 
@@ -79,26 +83,43 @@ export function CatalogClient({
   isAdmin: boolean;
   isLoggedIn: boolean;
   linkCode?: string;
-  resubmitQuote?: { id: string; items: Record<string, number>; note?: string };
+  resubmitQuote?: {
+    id: string;
+    code: string;
+    createdAt: string;
+    items: Record<string, number>;
+    note?: string;
+  };
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [category, setCategory] = useState<string>(() => categories[0]?.id ?? "");
+  const [category, setCategory] = useState<string>(
+    () => categories[0]?.id ?? "",
+  );
   const [search, setSearch] = useState("");
-  // Every product starts selected (quantity 1) so the customer can simply
-  // untick what they don't want, instead of hunting for an "add" button —
+  // Nothing is pre-selected — the customer picks what they actually want —
   // unless we're editing a previously submitted request, in which case we
   // start from exactly what was in it.
   const [cart, setCart] = useState<Record<string, number>>(() =>
-    resubmitQuote ? resubmitQuote.items : Object.fromEntries(products.map((p) => [p.id, 1]))
+    resubmitQuote ? resubmitQuote.items : {},
   );
   const [cartOpen, setCartOpen] = useState(false);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
-  const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
+  // Nudges an anonymous visitor to log in as soon as they land on the page
+  // (separate from authPromptOpen, which only appears when they try to
+  // submit) — dismissible so they can still just browse without an account.
+  const [browseGateOpen, setBrowseGateOpen] = useState(!isLoggedIn);
+  const [previewImage, setPreviewImage] = useState<{
+    src: string;
+    alt: string;
+  } | null>(null);
 
-  const [committed, setCommitted] = useState({ search: "", categoryId: category });
+  const [committed, setCommitted] = useState({
+    search: "",
+    categoryId: category,
+  });
   const [displayedProducts, setDisplayedProducts] = useState<Product[]>(() =>
-    products.filter((p) => p.categoryId === category)
+    products.filter((p) => p.categoryId === category),
   );
   const [loading, setLoading] = useState(false);
 
@@ -114,7 +135,11 @@ export function CatalogClient({
       const raw = localStorage.getItem(PENDING_CART_KEY);
       if (!raw) return;
       localStorage.removeItem(PENDING_CART_KEY);
-      const saved = JSON.parse(raw) as { cart: Record<string, number>; path: string; savedAt: number };
+      const saved = JSON.parse(raw) as {
+        cart: Record<string, number>;
+        path: string;
+        savedAt: number;
+      };
       const isFresh = Date.now() - saved.savedAt < PENDING_CART_TTL_MS;
       if (isFresh && saved.path === pathname) {
         setCart(saved.cart);
@@ -136,23 +161,31 @@ export function CatalogClient({
     return () => clearTimeout(handle);
   }, [search, category]);
 
-  const fetchProducts = useCallback(async (filters: { search: string; categoryId: string }) => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (filters.search.trim()) params.set("search", filters.search.trim());
-      if (filters.categoryId) params.set("categoryId", filters.categoryId);
+  const fetchProducts = useCallback(
+    async (filters: { search: string; categoryId: string }) => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (filters.search.trim()) params.set("search", filters.search.trim());
+        if (filters.categoryId) params.set("categoryId", filters.categoryId);
 
-      const res = await fetch(`/api/products?${params.toString()}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Không tải được danh sách sản phẩm");
-      setDisplayedProducts(data.products);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không tải được danh sách sản phẩm");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        const res = await fetch(`/api/products?${params.toString()}`);
+        const data = await res.json();
+        if (!res.ok)
+          throw new Error(data.error ?? "Không tải được danh sách sản phẩm");
+        setDisplayedProducts(data.products);
+      } catch (err) {
+        toast.error(
+          err instanceof Error
+            ? err.message
+            : "Không tải được danh sách sản phẩm",
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
 
   // Skip the very first run: the server already rendered the default
   // (unfiltered-by-search, first-tab) view via `products`.
@@ -174,7 +207,8 @@ export function CatalogClient({
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const p of products) counts.set(p.categoryId, (counts.get(p.categoryId) ?? 0) + 1);
+    for (const p of products)
+      counts.set(p.categoryId, (counts.get(p.categoryId) ?? 0) + 1);
     return counts;
   }, [products]);
 
@@ -204,9 +238,12 @@ export function CatalogClient({
     updateQuantity(productId, checked ? 1 : 0);
   }
 
-  const selectedInViewCount = displayedProducts.filter((p) => cart[p.id] !== undefined).length;
+  const selectedInViewCount = displayedProducts.filter(
+    (p) => cart[p.id] !== undefined,
+  ).length;
   const allVisibleSelected =
-    displayedProducts.length > 0 && selectedInViewCount === displayedProducts.length;
+    displayedProducts.length > 0 &&
+    selectedInViewCount === displayedProducts.length;
 
   function toggleSelectAllVisible() {
     setCart((prev) => {
@@ -223,7 +260,10 @@ export function CatalogClient({
   }
 
   function retailPriceVnd(product: Product) {
-    const retailUsd = computePricesUsd(product.priceUsd, pricingSettings).retailUsd;
+    const retailUsd = computePricesUsd(
+      product.priceUsd,
+      pricingSettings,
+    ).retailUsd;
     return usdToVnd(retailUsd, pricingSettings.usdToVndRate);
   }
 
@@ -243,7 +283,10 @@ export function CatalogClient({
   // the customer actually picks one of the two options.
   function goToAuth(path: "/login" | "/register") {
     try {
-      localStorage.setItem(PENDING_CART_KEY, JSON.stringify({ cart, path: pathname, savedAt: Date.now() }));
+      localStorage.setItem(
+        PENDING_CART_KEY,
+        JSON.stringify({ cart, path: pathname, savedAt: Date.now() }),
+      );
     } catch {
       // Ignore unavailable storage (e.g. private browsing edge cases).
     }
@@ -255,8 +298,12 @@ export function CatalogClient({
       <header className="sticky top-0 z-30 border-b bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
           <a href="/catalog" className="block">
-            <h1 className="text-lg font-bold text-primary sm:text-xl">ZenoGym</h1>
-            <p className="text-xs text-muted-foreground">Catalog thiết bị tập gym</p>
+            <h1 className="text-lg font-bold text-primary sm:text-xl">
+              ZenoGym
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              Catalog thiết bị tập gym
+            </p>
           </a>
           <div className="flex items-center gap-2">
             {isAdmin ? (
@@ -266,7 +313,12 @@ export function CatalogClient({
                 </a>
               </Button>
             ) : null}
-            <Button variant="outline" size="sm" onClick={openCart} className="relative">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openCart}
+              className="relative"
+            >
               <ShoppingCart className="h-4 w-4" />
               <span className="hidden sm:inline">Yêu cầu báo giá</span>
               {totalItems > 0 ? (
@@ -292,18 +344,28 @@ export function CatalogClient({
                     {!isAdmin ? (
                       <DropdownMenuItem asChild>
                         <a href="/account/quotes">
-                          <FileText className="h-4 w-4" /> Yêu cầu báo giá của tôi
+                          <FileText className="h-4 w-4" /> Yêu cầu báo giá của
+                          tôi
                         </a>
                       </DropdownMenuItem>
                     ) : null}
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Button variant="ghost" size="icon" title="Đăng xuất" onClick={handleSignOut}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Đăng xuất"
+                  onClick={handleSignOut}
+                >
                   <LogOut className="h-4 w-4" />
                 </Button>
               </>
             ) : (
-              <Button variant="outline" size="sm" onClick={() => goToAuth("/login")}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToAuth("/login")}
+              >
                 <LogIn className="mr-1 h-4 w-4" /> Đăng nhập
               </Button>
             )}
@@ -322,7 +384,7 @@ export function CatalogClient({
           />
         </div>
 
-        <div className="mb-2 flex gap-1 overflow-x-auto border-b">
+        <div className="mb-2 flex flex-wrap gap-1 border-b">
           {categories.map((c) => (
             <TabButton
               key={c.id}
@@ -339,11 +401,25 @@ export function CatalogClient({
           <p>
             {resubmitQuote
               ? "Bạn đang chỉnh sửa yêu cầu báo giá đã gửi. Điều chỉnh sản phẩm/số lượng rồi gửi lại."
-              : "Mặc định đã chọn tất cả sản phẩm để gửi yêu cầu báo giá. Nhấn vào từng tab để lựa chọn những sản phẩm cần nhận báo giá, bỏ chọn nếu bạn không cần."}
+              : "Tick chọn những sản phẩm bạn muốn nhận báo giá, sau đó nhấn \"Gửi yêu cầu báo giá\"."}
           </p>
         </div>
 
-        <Card>
+        {resubmitQuote ? (
+          <div className="mb-3">
+            <h2 className="text-lg font-bold text-foreground">Yêu cầu báo giá đã gửi</h2>
+            <p className="text-sm text-muted-foreground">
+              Mã: <span className="font-medium text-foreground">{resubmitQuote.code}</span> · Gửi lúc{" "}
+              {formatDate(resubmitQuote.createdAt)}
+            </p>
+          </div>
+        ) : null}
+
+        <Card
+          className={cn(
+            browseGateOpen && "pointer-events-none select-none blur-sm",
+          )}
+        >
           <CardContent className="p-0">
             <div className="max-h-[65vh] overflow-auto">
               <table className="w-full min-w-[640px] text-sm">
@@ -362,20 +438,30 @@ export function CatalogClient({
                     <th className="px-3 py-2 font-medium">Model</th>
                     <th className="px-3 py-2 font-medium">Tên sản phẩm</th>
                     <th className="px-3 py-2 font-medium">Loại</th>
-                    <th className="px-3 py-2 text-right font-medium">Giá bán lẻ</th>
-                    <th className="w-24 px-3 py-2 text-center font-medium">Số lượng</th>
+                    <th className="px-3 py-2 text-right font-medium">
+                      Giá bán lẻ
+                    </th>
+                    <th className="w-24 px-3 py-2 text-center font-medium">
+                      Số lượng
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={7} className="px-3 py-10 text-center text-muted-foreground">
+                      <td
+                        colSpan={7}
+                        className="px-3 py-10 text-center text-muted-foreground"
+                      >
                         <Loader2 className="mx-auto h-5 w-5 animate-spin" />
                       </td>
                     </tr>
                   ) : displayedProducts.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-3 py-10 text-center text-muted-foreground">
+                      <td
+                        colSpan={7}
+                        className="px-3 py-10 text-center text-muted-foreground"
+                      >
                         Không tìm thấy thiết bị phù hợp.
                       </td>
                     </tr>
@@ -387,27 +473,42 @@ export function CatalogClient({
                           key={product.id}
                           className={cn(
                             "border-b last:border-0 hover:bg-accent/30",
-                            checked && "bg-primary/10 font-bold text-foreground"
+                            checked &&
+                              "bg-primary/10 font-bold text-foreground",
                           )}
                         >
                           <td className="px-3 py-2">
                             <input
                               type="checkbox"
                               checked={checked}
-                              onChange={(e) => toggleSelected(product.id, e.target.checked)}
+                              onChange={(e) =>
+                                toggleSelected(product.id, e.target.checked)
+                              }
                               className="h-4 w-4 rounded border-input accent-primary"
                             />
                           </td>
                           <td className="px-3 py-2">
                             <button
                               type="button"
-                              onClick={() => setPreviewImage({ src: product.image, alt: product.name })}
+                              onClick={() =>
+                                setPreviewImage({
+                                  src: product.image,
+                                  alt: product.name,
+                                })
+                              }
                               className="relative block h-12 w-12 shrink-0 overflow-hidden rounded bg-slate-100 transition-opacity hover:opacity-80"
                             >
-                              <Image src={product.image} alt={product.name} fill className="object-cover" />
+                              <Image
+                                src={product.image}
+                                alt={product.name}
+                                fill
+                                className="object-cover"
+                              />
                             </button>
                           </td>
-                          <td className="px-3 py-2 text-muted-foreground">{product.model}</td>
+                          <td className="px-3 py-2 text-muted-foreground">
+                            {product.model}
+                          </td>
                           <td className="max-w-[280px] px-3 py-2 font-medium">
                             <span className="line-clamp-2">{product.name}</span>
                           </td>
@@ -426,7 +527,10 @@ export function CatalogClient({
                               value={cart[product.id] ?? 1}
                               disabled={!checked}
                               onChange={(e) =>
-                                updateQuantity(product.id, Math.max(1, Number(e.target.value) || 1))
+                                updateQuantity(
+                                  product.id,
+                                  Math.max(1, Number(e.target.value) || 1),
+                                )
                               }
                               className="h-8 w-16 text-center mx-auto"
                             />
@@ -441,8 +545,8 @@ export function CatalogClient({
           </CardContent>
         </Card>
 
-        <div className="mt-4 flex justify-center sm:justify-end">
-          <Button size="lg" onClick={openCart}>
+        <div className="mt-4 flex flex-col items-center gap-1.5 sm:items-end">
+          <Button size="lg" onClick={openCart} disabled={totalItems === 0}>
             <ShoppingCart className="mr-2 h-4 w-4" />
             {resubmitQuote ? "Gửi lại yêu cầu báo giá" : "Gửi yêu cầu báo giá"}
             {totalItems > 0 ? (
@@ -451,6 +555,9 @@ export function CatalogClient({
               </span>
             ) : null}
           </Button>
+          {totalItems === 0 ? (
+            <p className="text-xs text-muted-foreground">Vui lòng chọn ít nhất một sản phẩm để gửi yêu cầu báo giá.</p>
+          ) : null}
         </div>
       </main>
 
@@ -478,32 +585,80 @@ export function CatalogClient({
         </button>
       ) : null}
 
+      <Dialog open={browseGateOpen} onOpenChange={setBrowseGateOpen}>
+        <DialogContent
+          className="max-w-sm"
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>Đăng nhập để lưu lịch sử chọn thiết bị</DialogTitle>
+            <DialogDescription className="text-black mt-2">
+              Bạn cần đăng nhập để lưu lại lịch sử chọn thiết bị và gửi yêu cầu
+              báo giá. Bạn cũng có thể chỉ xem catalog mà không cần đăng nhập.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-center">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => setBrowseGateOpen(false)}
+            >
+              Chỉ xem, không lưu lịch sử
+            </Button>
+            <Button
+              className="w-full sm:w-auto"
+              onClick={() => goToAuth("/login")}
+            >
+              Đăng nhập
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={authPromptOpen} onOpenChange={setAuthPromptOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Cần đăng nhập để gửi yêu cầu báo giá</DialogTitle>
             <DialogDescription>
-              Vui lòng đăng nhập hoặc đăng ký tài khoản để gửi yêu cầu báo giá. Sản phẩm bạn đã
-              chọn sẽ được giữ nguyên.
+              Vui lòng đăng nhập hoặc đăng ký tài khoản để gửi yêu cầu báo giá.
+              Sản phẩm bạn đã chọn sẽ được giữ nguyên.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="sm:justify-center">
-            <Button variant="outline" className="w-full sm:w-auto" onClick={() => goToAuth("/login")}>
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => goToAuth("/login")}
+            >
               Đăng nhập
             </Button>
-            <Button className="w-full sm:w-auto" onClick={() => goToAuth("/register")}>
+            <Button
+              className="w-full sm:w-auto"
+              onClick={() => goToAuth("/register")}
+            >
               Đăng ký
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
+      <Dialog
+        open={!!previewImage}
+        onOpenChange={(open) => !open && setPreviewImage(null)}
+      >
         <DialogContent className="max-w-2xl">
-          <DialogTitle className="sr-only">{previewImage?.alt ?? "Ảnh sản phẩm"}</DialogTitle>
+          <DialogTitle className="sr-only">
+            {previewImage?.alt ?? "Ảnh sản phẩm"}
+          </DialogTitle>
           {previewImage ? (
             <div className="relative h-[70vh] w-full">
-              <Image src={previewImage.src} alt={previewImage.alt} fill sizes="90vw" className="object-contain" />
+              <Image
+                src={previewImage.src}
+                alt={previewImage.alt}
+                fill
+                sizes="90vw"
+                className="object-contain"
+              />
             </div>
           ) : null}
         </DialogContent>
@@ -530,7 +685,7 @@ function TabButton({
         "whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors",
         active
           ? "border-primary text-primary"
-          : "border-transparent text-muted-foreground hover:text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground",
       )}
     >
       {label}{" "}

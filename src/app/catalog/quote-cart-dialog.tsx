@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Pencil, PackageCheck, Loader2 } from "lucide-react";
+import { AlertTriangle, Eye, Pencil, PackageCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -53,6 +54,7 @@ export function QuoteCartDialog({
   const [address, setAddress] = useState(defaultAddress);
   const [note, setNote] = useState(initialNote ?? "");
   const [submitting, setSubmitting] = useState(false);
+  const [viewOpen, setViewOpen] = useState(false);
 
   const isEditingRequest = !!resubmitId;
 
@@ -82,6 +84,14 @@ export function QuoteCartDialog({
 
   const totalItems = cartLines.reduce((sum, l) => sum + l.quantity, 0);
 
+  // Shared by both the "Chỉnh sửa" button here and the one inside the
+  // "Xem" list — either way, close everything and drop back to the
+  // product table so the customer can adjust their selection.
+  function handleEditSelection() {
+    setViewOpen(false);
+    onOpenChange(false);
+  }
+
   async function handleSubmit() {
     if (cartLines.length === 0) {
       toast.error("Vui lòng chọn ít nhất một thiết bị");
@@ -101,6 +111,8 @@ export function QuoteCartDialog({
         image: l.product.image,
         categoryId: l.product.categoryId,
         categoryName: l.product.categoryName,
+        factoryId: l.product.factoryId,
+        factoryName: l.product.factoryName,
         quantity: l.quantity,
         price: l.product.priceUsd,
       }));
@@ -164,6 +176,7 @@ export function QuoteCartDialog({
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(next) => !submitting && onOpenChange(next)}>
       <DialogContent className="max-w-lg" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
@@ -187,15 +200,26 @@ export function QuoteCartDialog({
               Báo giá cho <span className="font-semibold">{totalItems}</span> thiết bị đã chọn
             </p>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={submitting}
-            onClick={() => onOpenChange(false)}
-          >
-            <Pencil className="mr-1 h-3.5 w-3.5" /> Chỉnh sửa
-          </Button>
+          <div className="flex shrink-0 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={submitting}
+              onClick={() => setViewOpen(true)}
+            >
+              <Eye className="mr-1 h-3.5 w-3.5" /> Xem
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={submitting}
+              onClick={handleEditSelection}
+            >
+              <Pencil className="mr-1 h-3.5 w-3.5" /> Chỉnh sửa
+            </Button>
+          </div>
         </div>
 
         {!isEditingRequest ? (
@@ -283,5 +307,36 @@ export function QuoteCartDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Sản phẩm đã chọn ({totalItems})</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-2 overflow-y-auto">
+            {cartLines.map((line) => (
+              <div
+                key={line.product.id}
+                className="flex items-center gap-3 rounded-md border p-2"
+              >
+                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-slate-100">
+                  <Image src={line.product.image} alt={line.product.name} fill className="object-cover" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{line.product.name}</p>
+                  <p className="text-xs text-muted-foreground">{line.product.model}</p>
+                </div>
+                <p className="shrink-0 text-sm font-semibold text-primary">SL: {line.quantity}</p>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={handleEditSelection}>
+              <Pencil className="mr-1 h-3.5 w-3.5" /> Chỉnh sửa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

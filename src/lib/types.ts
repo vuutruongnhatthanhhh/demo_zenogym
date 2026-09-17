@@ -38,6 +38,8 @@ export interface QuoteRequestItem {
   image: string;
   categoryId: string;
   categoryName: string;
+  factoryId?: string;
+  factoryName?: string;
   quantity: number;
   price: number;
 }

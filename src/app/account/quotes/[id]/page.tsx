@@ -38,7 +38,7 @@ export default async function EditCustomerQuotePage({
       customerAddress={user.address}
       isAdmin={user.role === "admin"}
       isLoggedIn
-      resubmitQuote={{ id: quote.id, items, note: quote.note }}
+      resubmitQuote={{ id: quote.id, code: quote.code, createdAt: quote.createdAt, items, note: quote.note }}
     />
   );
 }

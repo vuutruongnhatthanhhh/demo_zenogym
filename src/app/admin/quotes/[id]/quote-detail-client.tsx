@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Download, Eye, Lock, Percent, RotateCcw, Unlock } from "lucide-react";
+import { ArrowLeft, Download, Eye, Factory, Lock, Percent, RotateCcw, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { cn, formatVND, formatDate } from "@/lib/utils";
+import { cn, formatVND, formatDate, slugify } from "@/lib/utils";
 import { computePricesUsd, usdToVnd, type PricingSettings } from "@/lib/pricing";
 import type { QuoteLineItem, QuoteRequest, QuoteRequestItem } from "@/lib/types";
 
@@ -122,6 +122,8 @@ export function QuoteDetailClient({
   const [sending, setSending] = useState(false);
   const [unlockedQtyRows, setUnlockedQtyRows] = useState<Set<number>>(() => new Set());
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
+  const [factoryFilter, setFactoryFilter] = useState("all");
+  const [downloadingFactoryPdf, setDownloadingFactoryPdf] = useState(false);
 
   function toggleQtyLock(idx: number) {
     setUnlockedQtyRows((prev) => {
@@ -137,6 +139,24 @@ export function QuoteDetailClient({
     quote.items.forEach((item) => map.set(item.productId, item));
     return map;
   }, [quote.items]);
+
+  // Which factories actually show up in this quote (with item counts) —
+  // drives both the filter dropdown and the "gửi nhà máy" PDF download.
+  const distinctFactories = useMemo(() => {
+    const map = new Map<string, { name: string; count: number }>();
+    quote.items.forEach((item) => {
+      if (!item.factoryId) return;
+      const existing = map.get(item.factoryId);
+      if (existing) existing.count += 1;
+      else map.set(item.factoryId, { name: item.factoryName || "Không rõ", count: 1 });
+    });
+    return Array.from(map.entries()).map(([id, v]) => ({ id, name: v.name, count: v.count }));
+  }, [quote.items]);
+
+  const selectedFactory =
+    factoryFilter === "all"
+      ? { name: "Tất cả nhà máy", count: quote.items.length }
+      : distinctFactories.find((f) => f.id === factoryFilter) ?? { name: "Không rõ", count: 0 };
 
   function lineCategory(productId: string) {
     const original = originalByProductId.get(productId);
@@ -234,6 +254,33 @@ export function QuoteDetailClient({
     }
   }
 
+  async function handleDownloadFactoryPdf() {
+    setDownloadingFactoryPdf(true);
+    try {
+      const res = await fetch(
+        `/api/quotes/${quote.id}/factory-pdf?factoryId=${encodeURIComponent(factoryFilter)}`
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Tạo PDF thất bại");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const factorySuffix = factoryFilter !== "all" ? `-${slugify(selectedFactory.name)}` : "";
+      a.download = `bao-gia-nha-may${factorySuffix}-${quote.code}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Có lỗi xảy ra");
+    } finally {
+      setDownloadingFactoryPdf(false);
+    }
+  }
+
   async function handleSend() {
     if (lines.length === 0) {
       toast.error("Danh sách sản phẩm trống");
@@ -318,6 +365,36 @@ export function QuoteDetailClient({
               </Link>
             </Button>
           </div>
+
+          {distinctFactories.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2">
+              <Factory className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <select
+                value={factoryFilter}
+                onChange={(e) => setFactoryFilter(e.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+              >
+                <option value="all">Tất cả nhà máy ({quote.items.length})</option>
+                {distinctFactories.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name} ({f.count})
+                  </option>
+                ))}
+              </select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadFactoryPdf}
+                disabled={downloadingFactoryPdf}
+                className="ml-auto"
+              >
+                <Download className="mr-1 h-3.5 w-3.5" />
+                {downloadingFactoryPdf
+                  ? "Đang tải..."
+                  : `Tải PDF gửi nhà máy (${selectedFactory.name} · ${selectedFactory.count} sản phẩm)`}
+              </Button>
+            </div>
+          ) : null}
 
           <div className="flex gap-1 overflow-x-auto border-b">
             {tabs.map((tab) => (
