@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, EyeOff, Loader2, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { formatUSD, formatVND } from "@/lib/utils";
-import { computePricesUsd, usdToVnd, type PricingSettings } from "@/lib/pricing";
+import { computePricesUsd, roundWholesaleVnd, usdToVnd, type PricingSettings } from "@/lib/pricing";
 import type { Category, Factory, Product } from "@/lib/types";
 import type { PaginatedProducts } from "@/lib/data/products";
 import { ProductFormDialog } from "./product-form-dialog";
@@ -59,6 +59,7 @@ export function ProductsClient({
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Product | undefined>(undefined);
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
+  const [showRawWholesale, setShowRawWholesale] = useState(false);
 
   // Debounce: only commit filter changes (and jump back to page 1) 400ms
   // after the user stops typing/selecting, so we don't hit the API on every
@@ -182,6 +183,15 @@ export function ProductsClient({
     return currency === "vnd" ? formatVND(usdToVnd(usd, pricingSettings.usdToVndRate)) : formatUSD(usd);
   }
 
+  // Wholesale gets its own formatter since it's the only price with an
+  // optional rounding step — showRaw lets an admin peek at the exact,
+  // unrounded figure for one row at a time.
+  function formatWholesalePrice(usd: number, showRaw: boolean) {
+    if (currency !== "vnd") return formatUSD(usd);
+    const vnd = usdToVnd(usd, pricingSettings.usdToVndRate);
+    return formatVND(showRaw ? Math.round(vnd) : roundWholesaleVnd(vnd, pricingSettings));
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -277,7 +287,25 @@ export function ProductsClient({
                   <th className="px-3 py-2 text-right font-medium">Giá nhà máy</th>
                   <th className="px-3 py-2 text-right font-medium">Giá vốn</th>
                   <th className="px-3 py-2 text-right font-medium">Giá lẻ</th>
-                  <th className="px-3 py-2 text-right font-medium">Giá sỉ</th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    <div className="flex items-center justify-end gap-1">
+                      Giá sỉ
+                      {currency === "vnd" && pricingSettings.roundWholesalePrice ? (
+                        <button
+                          type="button"
+                          title={showRawWholesale ? "Ẩn giá chưa làm tròn" : "Xem giá chưa làm tròn"}
+                          onClick={() => setShowRawWholesale((v) => !v)}
+                          className={showRawWholesale ? "text-primary" : "text-muted-foreground"}
+                        >
+                          {showRawWholesale ? (
+                            <EyeOff className="h-3.5 w-3.5" />
+                          ) : (
+                            <Eye className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      ) : null}
+                    </div>
+                  </th>
                   <th className="px-3 py-2 font-medium">Tên sản phẩm</th>
                   <th className="px-3 py-2 font-medium">Loại</th>
                   <th className="px-3 py-2 font-medium">Nhà máy</th>
@@ -321,7 +349,9 @@ export function ProductsClient({
                       <td className="px-3 py-2 text-right font-semibold text-primary">
                         {formatPrice(prices.retailUsd)}
                       </td>
-                      <td className="px-3 py-2 text-right">{formatPrice(prices.wholesaleUsd)}</td>
+                      <td className="px-3 py-2 text-right">
+                        {formatWholesalePrice(prices.wholesaleUsd, showRawWholesale)}
+                      </td>
                       <td className="max-w-[220px] px-3 py-2 font-medium">
                         <span className="line-clamp-2">{product.name}</span>
                       </td>

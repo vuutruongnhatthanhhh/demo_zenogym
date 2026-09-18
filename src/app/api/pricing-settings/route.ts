@@ -23,6 +23,7 @@ export async function PUT(req: NextRequest) {
   const retailMarkupPercent = Number(body?.retailMarkupPercent);
   const wholesaleMarkupPercent = Number(body?.wholesaleMarkupPercent);
   const usdToVndRate = Number(body?.usdToVndRate);
+  const roundWholesalePrice = Boolean(body?.roundWholesalePrice);
 
   if (
     !Number.isFinite(costMarkupPercent) ||
@@ -42,6 +43,7 @@ export async function PUT(req: NextRequest) {
     retailMarkupPercent,
     wholesaleMarkupPercent,
     usdToVndRate,
+    roundWholesalePrice,
   });
   return NextResponse.json({ settings });
 }

@@ -4,7 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Download, Eye, Factory, Lock, Percent, RotateCcw, Unlock } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  Eye,
+  EyeOff,
+  Factory,
+  Lock,
+  Percent,
+  RotateCcw,
+  Unlock,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn, formatVND, formatDate, slugify } from "@/lib/utils";
-import { computePricesUsd, usdToVnd, type PricingSettings } from "@/lib/pricing";
+import { computePricesUsd, roundWholesaleVnd, usdToVnd, type PricingSettings } from "@/lib/pricing";
 import type { QuoteLineItem, QuoteRequest, QuoteRequestItem } from "@/lib/types";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -100,7 +110,7 @@ function buildInitialLines(quote: QuoteRequest, pricingSettings: PricingSettings
       name: item.name,
       image: item.image,
       quantity: item.quantity,
-      unitPrice: Math.round(usdToVnd(wholesaleUsd, pricingSettings.usdToVndRate)),
+      unitPrice: roundWholesaleVnd(usdToVnd(wholesaleUsd, pricingSettings.usdToVndRate), pricingSettings),
     };
   });
 }
@@ -121,6 +131,7 @@ export function QuoteDetailClient({
   const [downloading, setDownloading] = useState(false);
   const [sending, setSending] = useState(false);
   const [unlockedQtyRows, setUnlockedQtyRows] = useState<Set<number>>(() => new Set());
+  const [showRawWholesale, setShowRawWholesale] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
   const [factoryFilter, setFactoryFilter] = useState("all");
   const [downloadingFactoryPdf, setDownloadingFactoryPdf] = useState(false);
@@ -196,8 +207,37 @@ export function QuoteDetailClient({
   const profit = total - totalCost;
   const profitPercent = totalCost > 0 ? (profit / totalCost) * 100 : 0;
 
+  // How far the current total (whatever it is now — default, rounded, or
+  // hand-edited) sits from what it'd be using the raw, unrounded default
+  // prices — only meaningful when rounding is actually turned on.
+  const totalRawDefault = lines.reduce((sum, l) => {
+    const original = originalByProductId.get(l.productId);
+    if (!original) return sum;
+    const wholesaleUsd = computePricesUsd(original.price, pricingSettings).wholesaleUsd;
+    return sum + Math.round(usdToVnd(wholesaleUsd, pricingSettings.usdToVndRate)) * l.quantity;
+  }, 0);
+  const deviationFromRaw = total - totalRawDefault;
+
   function updateLine(index: number, patch: Partial<QuoteLineItem>) {
     setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
+  }
+
+  // A quote already priced before rounding was turned on keeps its old,
+  // unrounded saved prices on load (buildInitialLines only computes fresh
+  // defaults when there's no saved draft yet) — this re-applies the current
+  // default (rounded, if enabled) to every line in one go.
+  function handleResetAllToDefault() {
+    setLines((prev) =>
+      prev.map((l) => {
+        const original = originalByProductId.get(l.productId);
+        if (!original) return l;
+        const wholesaleUsd = computePricesUsd(original.price, pricingSettings).wholesaleUsd;
+        return {
+          ...l,
+          unitPrice: roundWholesaleVnd(usdToVnd(wholesaleUsd, pricingSettings.usdToVndRate), pricingSettings),
+        };
+      })
+    );
   }
 
   async function fetchPreviewPdfBlob() {
@@ -358,12 +398,18 @@ export function QuoteDetailClient({
             <p>
               Giá sỉ đang tính = Giá nhà máy +{" "}
               <span className="font-semibold text-primary">{pricingSettings.wholesaleMarkupPercent}%</span>
+              {pricingSettings.roundWholesalePrice ? ", đã làm tròn" : ""}
             </p>
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/admin/pricing-settings">
-                <Percent className="mr-1 h-3.5 w-3.5" /> Chỉnh cấu hình giá
-              </Link>
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleResetAllToDefault}>
+                <RotateCcw className="mr-1 h-3.5 w-3.5" /> Đặt lại tất cả về giá mặc định
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/admin/pricing-settings">
+                  <Percent className="mr-1 h-3.5 w-3.5" /> Chỉnh cấu hình giá
+                </Link>
+              </Button>
+            </div>
           </div>
 
           {distinctFactories.length > 0 ? (
@@ -415,7 +461,28 @@ export function QuoteDetailClient({
                   <tr className="sticky top-0 z-10 border-b bg-slate-50 text-left text-xs text-muted-foreground">
                     <th className="w-16 px-3 py-2 font-medium"></th>
                     <th className="px-3 py-2 font-medium">Model</th>
-                    <th className="w-32 px-3 py-2 text-right font-medium">Giá sỉ</th>
+                    <th className="w-32 px-3 py-2 text-right font-medium">
+                      <div className="flex items-center justify-end gap-1">
+                        Giá sỉ
+                        {pricingSettings.roundWholesalePrice ? (
+                          <button
+                            type="button"
+                            title={showRawWholesale ? "Ẩn giá chưa làm tròn" : "Xem giá chưa làm tròn"}
+                            onClick={() => setShowRawWholesale((v) => !v)}
+                            className={cn(
+                              "rounded p-0.5 hover:bg-accent hover:text-foreground",
+                              showRawWholesale ? "text-primary" : "text-muted-foreground"
+                            )}
+                          >
+                            {showRawWholesale ? (
+                              <EyeOff className="h-3.5 w-3.5" />
+                            ) : (
+                              <Eye className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        ) : null}
+                      </div>
+                    </th>
                     <th className="px-3 py-2 text-right font-medium">Giá vốn</th>
                     <th className="px-3 py-2 text-right font-medium">Giá lẻ</th>
                     <th className="px-3 py-2 font-medium">Tên sản phẩm</th>
@@ -447,27 +514,38 @@ export function QuoteDetailClient({
                           </td>
                           <td className="px-3 py-2 text-muted-foreground">{original?.model ?? "-"}</td>
                           <td className="px-3 py-2">
-                            <div className="flex items-center justify-end gap-1">
-                              <PriceInput
-                                value={line.unitPrice}
-                                onChange={(unitPrice) => updateLine(idx, { unitPrice })}
-                                className="h-8 w-28 text-right"
-                              />
-                              {prices ? (
-                                <button
-                                  type="button"
-                                  title="Đặt lại giá sỉ mặc định"
-                                  onClick={() =>
-                                    updateLine(idx, {
-                                      unitPrice: Math.round(
-                                        usdToVnd(prices.wholesaleUsd, pricingSettings.usdToVndRate)
-                                      ),
-                                    })
-                                  }
-                                  className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                                >
-                                  <RotateCcw className="h-3.5 w-3.5" />
-                                </button>
+                            <div className="flex flex-col items-end gap-1">
+                              <div className="flex items-center justify-end gap-1">
+                                <PriceInput
+                                  value={line.unitPrice}
+                                  onChange={(unitPrice) => updateLine(idx, { unitPrice })}
+                                  className="h-8 w-28 text-right"
+                                />
+                                {prices ? (
+                                  <button
+                                    type="button"
+                                    title="Đặt lại giá sỉ mặc định"
+                                    onClick={() =>
+                                      updateLine(idx, {
+                                        unitPrice: roundWholesaleVnd(
+                                          usdToVnd(prices.wholesaleUsd, pricingSettings.usdToVndRate),
+                                          pricingSettings
+                                        ),
+                                      })
+                                    }
+                                    className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                                  >
+                                    <RotateCcw className="h-3.5 w-3.5" />
+                                  </button>
+                                ) : null}
+                              </div>
+                              {prices && pricingSettings.roundWholesalePrice && showRawWholesale ? (
+                                <p className="text-[11px] text-muted-foreground">
+                                  Chưa làm tròn:{" "}
+                                  {formatVND(
+                                    Math.round(usdToVnd(prices.wholesaleUsd, pricingSettings.usdToVndRate))
+                                  )}
+                                </p>
                               ) : null}
                             </div>
                           </td>
@@ -534,6 +612,12 @@ export function QuoteDetailClient({
             <p className={cn("text-sm", profit >= 0 ? "text-success" : "text-destructive")}>
               Tiền lời so với giá vốn: {formatVND(profit)} ({profitPercent.toFixed(1)}%)
             </p>
+            {pricingSettings.roundWholesalePrice && deviationFromRaw !== 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Lệch {deviationFromRaw > 0 ? "+" : "-"}
+                {formatVND(Math.abs(deviationFromRaw))} so với giá chưa làm tròn
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-1">

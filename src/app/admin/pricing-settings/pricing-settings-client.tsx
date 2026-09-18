@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatUSD, formatVND } from "@/lib/utils";
-import { computePricesUsd, usdToVnd, type PricingSettings } from "@/lib/pricing";
+import { computePricesUsd, roundWholesaleVnd, usdToVnd, type PricingSettings } from "@/lib/pricing";
 
 const SAMPLE_FACTORY_PRICE_USD = 100;
 
@@ -21,15 +21,20 @@ export function PricingSettingsClient({ initialSettings }: { initialSettings: Pr
     String(initialSettings.wholesaleMarkupPercent)
   );
   const [usdToVndRate, setUsdToVndRate] = useState(String(initialSettings.usdToVndRate));
+  const [roundWholesalePrice, setRoundWholesalePrice] = useState(initialSettings.roundWholesalePrice);
   const [saving, setSaving] = useState(false);
 
-  const preview = computePricesUsd(SAMPLE_FACTORY_PRICE_USD, {
+  const draftSettings: PricingSettings = {
     costMarkupPercent: Number(costMarkupPercent) || 0,
     retailMarkupPercent: Number(retailMarkupPercent) || 0,
     wholesaleMarkupPercent: Number(wholesaleMarkupPercent) || 0,
     usdToVndRate: Number(usdToVndRate) || 0,
-  });
+    roundWholesalePrice,
+  };
+  const preview = computePricesUsd(SAMPLE_FACTORY_PRICE_USD, draftSettings);
   const rate = Number(usdToVndRate) || 0;
+  const wholesaleVnd = usdToVnd(preview.wholesaleUsd, rate);
+  const roundedWholesaleVnd = roundWholesaleVnd(wholesaleVnd, draftSettings);
 
   async function handleSave() {
     setSaving(true);
@@ -42,6 +47,7 @@ export function PricingSettingsClient({ initialSettings }: { initialSettings: Pr
           retailMarkupPercent: Number(retailMarkupPercent),
           wholesaleMarkupPercent: Number(wholesaleMarkupPercent),
           usdToVndRate: Number(usdToVndRate),
+          roundWholesalePrice,
         }),
       });
       const data = await res.json();
@@ -141,12 +147,52 @@ export function PricingSettingsClient({ initialSettings }: { initialSettings: Pr
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">Làm tròn giá sỉ</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Làm tròn giá sỉ (VNĐ) về bội số 500.000đ gần nhất để không bị lẻ. Ví dụ: 19.100.000 hoặc
+            19.200.000 → 19.000.000; 19.600.000 hoặc 19.700.000 → 19.500.000; 19.800.000 hoặc
+            19.900.000 → 20.000.000.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={roundWholesalePrice ? "outline" : "default"}
+              size="sm"
+              onClick={() => setRoundWholesalePrice(false)}
+            >
+              Không làm tròn
+            </Button>
+            <Button
+              type="button"
+              variant={roundWholesalePrice ? "default" : "outline"}
+              size="sm"
+              onClick={() => setRoundWholesalePrice(true)}
+            >
+              Làm tròn
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">Xem trước (giá nhà máy mẫu: {formatUSD(SAMPLE_FACTORY_PRICE_USD)})</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <PreviewItem label="Giá vốn" usd={preview.costUsd} vnd={usdToVnd(preview.costUsd, rate)} />
           <PreviewItem label="Giá lẻ" usd={preview.retailUsd} vnd={usdToVnd(preview.retailUsd, rate)} />
-          <PreviewItem label="Giá sỉ" usd={preview.wholesaleUsd} vnd={usdToVnd(preview.wholesaleUsd, rate)} />
+          <div className="rounded-md border p-3">
+            <p className="text-xs text-muted-foreground">Giá sỉ</p>
+            <p className="text-sm font-semibold">{formatVND(roundedWholesaleVnd)}</p>
+            <p className="text-xs text-muted-foreground">{formatUSD(preview.wholesaleUsd)}</p>
+            {roundWholesalePrice && roundedWholesaleVnd !== Math.round(wholesaleVnd) ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Chưa làm tròn: {formatVND(wholesaleVnd)}
+              </p>
+            ) : null}
+          </div>
         </CardContent>
       </Card>
 
