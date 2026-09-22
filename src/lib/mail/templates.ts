@@ -29,15 +29,3 @@ export async function sendPasswordResetEmail(to: string, name: string, resetUrl:
   await getTransporter().sendMail({ from: MAIL_FROM, to, subject, html });
 }
 
-export async function sendVerificationEmail(to: string, name: string, verifyUrl: string) {
-  const subject = "Xác nhận email đăng ký ZenoGym";
-  const html = await renderTemplate("verify-email", {
-    subject,
-    preheader: "Xác nhận email để kích hoạt tài khoản ZenoGym của bạn.",
-    name,
-    verifyUrl,
-    year: new Date().getFullYear(),
-  });
-
-  await getTransporter().sendMail({ from: MAIL_FROM, to, subject, html });
-}

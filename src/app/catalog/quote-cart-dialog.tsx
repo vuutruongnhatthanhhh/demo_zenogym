@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Eye, Pencil, PackageCheck, Loader2 } from "lucide-react";
+import { AlertTriangle, Eye, Plus, PackageCheck, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -30,8 +30,7 @@ export function QuoteCartDialog({
   defaultAddress,
   linkCode,
   isLoggedIn,
-  resubmitId,
-  initialNote,
+  onUpdateQuantity,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -43,8 +42,7 @@ export function QuoteCartDialog({
   defaultAddress: string;
   linkCode?: string;
   isLoggedIn: boolean;
-  resubmitId?: string;
-  initialNote?: string;
+  onUpdateQuantity: (productId: string, quantity: number) => void;
 }) {
   const router = useRouter();
   const [name, setName] = useState(defaultName);
@@ -52,11 +50,9 @@ export function QuoteCartDialog({
   const [phone, setPhone] = useState(defaultPhone);
   const [company, setCompany] = useState(defaultCompany);
   const [address, setAddress] = useState(defaultAddress);
-  const [note, setNote] = useState(initialNote ?? "");
+  const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
-
-  const isEditingRequest = !!resubmitId;
 
   // Re-sync if the saved profile info changes (e.g. after a successful send).
   useEffect(() => {
@@ -84,10 +80,10 @@ export function QuoteCartDialog({
 
   const totalItems = cartLines.reduce((sum, l) => sum + l.quantity, 0);
 
-  // Shared by both the "Chỉnh sửa" button here and the one inside the
-  // "Xem" list — either way, close everything and drop back to the
-  // product table so the customer can adjust their selection.
-  function handleEditSelection() {
+  // Closes both dialogs and drops back to the full product table so the
+  // customer can pick more items — quantity changes/removals on already
+  // selected items happen inline in the "Xem" list instead.
+  function handleAddMore() {
     setViewOpen(false);
     onOpenChange(false);
   }
@@ -97,7 +93,7 @@ export function QuoteCartDialog({
       toast.error("Vui lòng chọn ít nhất một thiết bị");
       return;
     }
-    if (!isEditingRequest && (!name.trim() || !email.trim() || !phone.trim() || !address.trim())) {
+    if (!name.trim() || !email.trim() || !phone.trim() || !address.trim()) {
       toast.error("Vui lòng nhập đầy đủ họ tên, email, số điện thoại và địa chỉ");
       return;
     }
@@ -117,23 +113,19 @@ export function QuoteCartDialog({
         price: l.product.priceUsd,
       }));
 
-      const res = await fetch(isEditingRequest ? `/api/quotes/${resubmitId}/resubmit` : "/api/quotes", {
-        method: isEditingRequest ? "PUT" : "POST",
+      const res = await fetch("/api/quotes", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          isEditingRequest
-            ? { items, note: note || undefined }
-            : {
-                customerName: name,
-                customerEmail: email,
-                customerPhone: phone,
-                companyName: company || undefined,
-                address,
-                note: note || undefined,
-                linkCode,
-                items,
-              }
-        ),
+        body: JSON.stringify({
+          customerName: name,
+          customerEmail: email,
+          customerPhone: phone,
+          companyName: company || undefined,
+          address,
+          note: note || undefined,
+          linkCode,
+          items,
+        }),
       });
 
       if (!res.ok) {
@@ -143,7 +135,7 @@ export function QuoteCartDialog({
 
       // Best-effort: keep the account's saved profile in sync with whatever
       // the customer just typed, so next time it's pre-filled correctly.
-      if (isLoggedIn && !isEditingRequest) {
+      if (isLoggedIn) {
         const supabase = createClient();
         await supabase.auth
           .updateUser({
@@ -152,22 +144,15 @@ export function QuoteCartDialog({
               phone: phone.trim(),
               company: company.trim(),
               address: address.trim(),
+              contact_email: email.trim(),
             },
           })
           .catch(() => {});
       }
 
-      toast.success(
-        isEditingRequest
-          ? "Đã cập nhật và gửi lại yêu cầu báo giá!"
-          : "Đã gửi yêu cầu báo giá! ZenoGym sẽ liên hệ với bạn sớm nhất."
-      );
+      toast.success("Đã gửi yêu cầu báo giá! ZenoGym sẽ liên hệ với bạn sớm nhất.");
       onOpenChange(false);
-      if (isEditingRequest) {
-        router.push("/account/quotes");
-      } else {
-        router.refresh();
-      }
+      router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gửi yêu cầu thất bại");
     } finally {
@@ -180,7 +165,7 @@ export function QuoteCartDialog({
     <Dialog open={open} onOpenChange={(next) => !submitting && onOpenChange(next)}>
       <DialogContent className="max-w-lg" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle>{isEditingRequest ? "Cập nhật yêu cầu báo giá" : "Gửi yêu cầu báo giá"}</DialogTitle>
+          <DialogTitle>Gửi yêu cầu báo giá</DialogTitle>
         </DialogHeader>
 
         {submitting ? (
@@ -210,46 +195,25 @@ export function QuoteCartDialog({
             >
               <Eye className="mr-1 h-3.5 w-3.5" /> Xem
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={submitting}
-              onClick={handleEditSelection}
-            >
-              <Pencil className="mr-1 h-3.5 w-3.5" /> Chỉnh sửa
-            </Button>
           </div>
         </div>
 
-        {!isEditingRequest ? (
-          <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <p>
-              Vui lòng nhập <strong>chính xác</strong> họ tên, số điện thoại và địa chỉ — các thông
-              tin này sẽ được điền vào hợp đồng báo giá gửi cho bạn.
-            </p>
-          </div>
-        ) : null}
+        <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            Vui lòng nhập <strong>chính xác</strong> họ tên, số điện thoại và địa chỉ — các thông
+            tin này sẽ được điền vào hợp đồng báo giá gửi cho bạn.
+          </p>
+        </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1">
             <Label htmlFor="quote-name">Họ tên *</Label>
-            <Input
-              id="quote-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={isEditingRequest}
-            />
+            <Input id="quote-name" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="space-y-1">
             <Label htmlFor="quote-phone">Số điện thoại *</Label>
-            <Input
-              id="quote-phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              disabled={isEditingRequest}
-            />
+            <Input id="quote-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
           <div className="col-span-full space-y-1">
             <Label htmlFor="quote-email">Email *</Label>
@@ -259,7 +223,6 @@ export function QuoteCartDialog({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="ban@congty.com"
-              disabled={isLoggedIn || isEditingRequest}
             />
           </div>
           <div className="col-span-full space-y-1">
@@ -269,17 +232,11 @@ export function QuoteCartDialog({
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
-              disabled={isEditingRequest}
             />
           </div>
           <div className="col-span-full space-y-1">
             <Label htmlFor="quote-company">Công ty / Phòng gym (không bắt buộc)</Label>
-            <Input
-              id="quote-company"
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              disabled={isEditingRequest}
-            />
+            <Input id="quote-company" value={company} onChange={(e) => setCompany(e.target.value)} />
           </div>
           <div className="col-span-full space-y-1">
             <Label htmlFor="quote-note">Ghi chú</Label>
@@ -298,11 +255,7 @@ export function QuoteCartDialog({
             disabled={submitting || cartLines.length === 0}
             className="w-full sm:w-auto"
           >
-            {submitting
-              ? "Đang gửi..."
-              : isEditingRequest
-                ? "Cập nhật & gửi lại yêu cầu"
-                : "Gửi yêu cầu báo giá"}
+            {submitting ? "Đang gửi..." : "Gửi yêu cầu báo giá"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -314,25 +267,47 @@ export function QuoteCartDialog({
             <DialogTitle>Sản phẩm đã chọn ({totalItems})</DialogTitle>
           </DialogHeader>
           <div className="max-h-[60vh] space-y-2 overflow-y-auto">
-            {cartLines.map((line) => (
-              <div
-                key={line.product.id}
-                className="flex items-center gap-3 rounded-md border p-2"
-              >
-                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-slate-100">
-                  <Image src={line.product.image} alt={line.product.name} fill className="object-cover" />
+            {cartLines.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Chưa có sản phẩm nào.</p>
+            ) : (
+              cartLines.map((line) => (
+                <div
+                  key={line.product.id}
+                  className="flex items-center gap-3 rounded-md border p-2"
+                >
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-slate-100">
+                    <Image src={line.product.image} alt={line.product.name} fill className="object-cover" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{line.product.name}</p>
+                    <p className="text-xs text-muted-foreground">{line.product.model}</p>
+                  </div>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={line.quantity}
+                    onChange={(e) =>
+                      onUpdateQuantity(line.product.id, Math.max(1, Number(e.target.value) || 1))
+                    }
+                    className="h-8 w-16 shrink-0 text-center"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => onUpdateQuantity(line.product.id, 0)}
+                    title="Bỏ sản phẩm này"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{line.product.name}</p>
-                  <p className="text-xs text-muted-foreground">{line.product.model}</p>
-                </div>
-                <p className="shrink-0 text-sm font-semibold text-primary">SL: {line.quantity}</p>
-              </div>
-            ))}
+              ))
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" className="w-full sm:w-auto" onClick={handleEditSelection}>
-              <Pencil className="mr-1 h-3.5 w-3.5" /> Chỉnh sửa
+            <Button variant="outline" className="w-full sm:w-auto" onClick={handleAddMore}>
+              <Plus className="mr-1 h-3.5 w-3.5" /> Thêm sản phẩm
             </Button>
           </DialogFooter>
         </DialogContent>

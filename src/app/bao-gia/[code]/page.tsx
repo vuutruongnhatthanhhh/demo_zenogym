@@ -27,7 +27,7 @@ export default async function QuoteLinkPage({ params }: { params: Promise<{ code
       categories={categories}
       pricingSettings={pricingSettings}
       customerName={user?.name ?? ""}
-      customerEmail={user?.email ?? ""}
+      customerEmail={user?.contactEmail ?? ""}
       customerPhone={user?.phone ?? ""}
       customerCompany={user?.company ?? ""}
       customerAddress={user?.address ?? ""}

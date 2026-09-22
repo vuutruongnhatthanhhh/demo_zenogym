@@ -22,11 +22,19 @@ interface Filters {
   search: string;
   categoryId: string;
   factoryId: string;
+  series: string;
   minPrice: string;
   maxPrice: string;
 }
 
-const EMPTY_FILTERS: Filters = { search: "", categoryId: ALL, factoryId: ALL, minPrice: "", maxPrice: "" };
+const EMPTY_FILTERS: Filters = {
+  search: "",
+  categoryId: ALL,
+  factoryId: ALL,
+  series: ALL,
+  minPrice: "",
+  maxPrice: "",
+};
 
 export function ProductsClient({
   initialResult,
@@ -34,12 +42,14 @@ export function ProductsClient({
   categories,
   factories,
   initialPricingSettings,
+  seriesList,
 }: {
   initialResult: PaginatedProducts;
   pageSize: number;
   categories: Category[];
   factories: Factory[];
   initialPricingSettings: PricingSettings;
+  seriesList: string[];
 }) {
   const [products, setProducts] = useState(initialResult.products);
   const [total, setTotal] = useState(initialResult.total);
@@ -52,6 +62,7 @@ export function ProductsClient({
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState(ALL);
   const [factoryId, setFactoryId] = useState(ALL);
+  const [series, setSeries] = useState(ALL);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [committed, setCommitted] = useState<Filters>(EMPTY_FILTERS);
@@ -66,11 +77,11 @@ export function ProductsClient({
   // keystroke.
   useEffect(() => {
     const handle = setTimeout(() => {
-      setCommitted({ search, categoryId, factoryId, minPrice, maxPrice });
+      setCommitted({ search, categoryId, factoryId, series, minPrice, maxPrice });
       setPage(1);
     }, 400);
     return () => clearTimeout(handle);
-  }, [search, categoryId, factoryId, minPrice, maxPrice]);
+  }, [search, categoryId, factoryId, series, minPrice, maxPrice]);
 
   const fetchProducts = useCallback(
     async (targetPage: number, filters: Filters) => {
@@ -83,6 +94,7 @@ export function ProductsClient({
         if (filters.search.trim()) params.set("search", filters.search.trim());
         if (filters.categoryId !== ALL) params.set("categoryId", filters.categoryId);
         if (filters.factoryId !== ALL) params.set("factoryId", filters.factoryId);
+        if (filters.series !== ALL) params.set("series", filters.series);
         if (filters.minPrice) params.set("minPrice", filters.minPrice);
         if (filters.maxPrice) params.set("maxPrice", filters.maxPrice);
 
@@ -118,6 +130,7 @@ export function ProductsClient({
     setSearch("");
     setCategoryId(ALL);
     setFactoryId(ALL);
+    setSeries(ALL);
     setMinPrice("");
     setMaxPrice("");
   }
@@ -177,19 +190,22 @@ export function ProductsClient({
     setTotalPages(Math.max(1, Math.ceil(newTotal / pageSize)));
   }
 
-  const hasActiveFilters = search || categoryId !== ALL || factoryId !== ALL || minPrice || maxPrice;
+  const hasActiveFilters =
+    search || categoryId !== ALL || factoryId !== ALL || series !== ALL || minPrice || maxPrice;
 
   function formatPrice(usd: number) {
     return currency === "vnd" ? formatVND(usdToVnd(usd, pricingSettings.usdToVndRate)) : formatUSD(usd);
   }
 
   // Wholesale gets its own formatter since it's the only price with an
-  // optional rounding step — showRaw lets an admin peek at the exact,
-  // unrounded figure for one row at a time.
-  function formatWholesalePrice(usd: number, showRaw: boolean) {
+  // optional rounding step.
+  function formatWholesalePrice(usd: number) {
     if (currency !== "vnd") return formatUSD(usd);
-    const vnd = usdToVnd(usd, pricingSettings.usdToVndRate);
-    return formatVND(showRaw ? Math.round(vnd) : roundWholesaleVnd(vnd, pricingSettings));
+    return formatVND(roundWholesaleVnd(usdToVnd(usd, pricingSettings.usdToVndRate), pricingSettings));
+  }
+
+  function formatRawWholesalePrice(usd: number) {
+    return formatVND(Math.round(usdToVnd(usd, pricingSettings.usdToVndRate)));
   }
 
   return (
@@ -244,6 +260,21 @@ export function ProductsClient({
               {factories.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="w-36 space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Series</label>
+            <select
+              value={series}
+              onChange={(e) => setSeries(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+            >
+              <option value={ALL}>Tất cả</option>
+              {seriesList.map((s) => (
+                <option key={s} value={s}>
+                  {s}
                 </option>
               ))}
             </select>
@@ -341,7 +372,12 @@ export function ProductsClient({
                           <Image src={product.image} alt={product.name} fill className="object-cover" />
                         </button>
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground">{product.model}</td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {product.model}
+                        {product.series ? (
+                          <p className="text-[10px] text-muted-foreground/70">Series: {product.series}</p>
+                        ) : null}
+                      </td>
                       <td className="px-3 py-2 text-right text-muted-foreground">
                         {formatPrice(prices.factoryUsd)}
                       </td>
@@ -350,7 +386,12 @@ export function ProductsClient({
                         {formatPrice(prices.retailUsd)}
                       </td>
                       <td className="px-3 py-2 text-right">
-                        {formatWholesalePrice(prices.wholesaleUsd, showRawWholesale)}
+                        <p>{formatWholesalePrice(prices.wholesaleUsd)}</p>
+                        {currency === "vnd" && pricingSettings.roundWholesalePrice && showRawWholesale ? (
+                          <p className="text-xs text-muted-foreground">
+                            Chưa làm tròn: {formatRawWholesalePrice(prices.wholesaleUsd)}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="max-w-[220px] px-3 py-2 font-medium">
                         <span className="line-clamp-2">{product.name}</span>

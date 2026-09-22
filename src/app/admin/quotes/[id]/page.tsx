@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getQuoteById, updateQuoteItems } from "@/lib/data/quotes";
-import { getProductById } from "@/lib/data/products";
+import { getAvailableProducts, getProductById } from "@/lib/data/products";
+import { getAllCategories } from "@/lib/data/categories";
 import { getPricingSettings } from "@/lib/data/pricing-settings";
 import { QuoteDetailClient } from "./quote-detail-client";
 
@@ -14,9 +15,11 @@ export default async function AdminQuoteDetailPage({
   const user = await getCurrentUser();
   if (!user || user.role !== "admin") redirect("/login");
 
-  const [quote, pricingSettings] = await Promise.all([
+  const [quote, pricingSettings, products, categories] = await Promise.all([
     getQuoteById(id, user.id, user.isSuperAdmin),
     getPricingSettings(),
+    getAvailableProducts(),
+    getAllCategories(),
   ]);
   if (!quote) notFound();
 
@@ -54,5 +57,12 @@ export default async function AdminQuoteDetailPage({
     );
   }
 
-  return <QuoteDetailClient quote={quote} pricingSettings={pricingSettings} />;
+  return (
+    <QuoteDetailClient
+      quote={quote}
+      pricingSettings={pricingSettings}
+      products={products}
+      categories={categories}
+    />
+  );
 }

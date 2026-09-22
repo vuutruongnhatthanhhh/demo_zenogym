@@ -19,6 +19,7 @@ export function AccountClient({ user }: { user: CurrentUser }) {
   const [fullName, setFullName] = useState(user.fullName);
   const [phone, setPhone] = useState(user.phone);
   const [address, setAddress] = useState(user.address);
+  const [contactEmail, setContactEmail] = useState(user.contactEmail);
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [password, setPassword] = useState("");
@@ -36,7 +37,12 @@ export function AccountClient({ user }: { user: CurrentUser }) {
     setSavingProfile(true);
     const supabase = createClient();
     const { error } = await supabase.auth.updateUser({
-      data: { full_name: fullName.trim(), phone: phone.trim(), address: address.trim() },
+      data: {
+        full_name: fullName.trim(),
+        phone: phone.trim(),
+        address: address.trim(),
+        contact_email: contactEmail.trim(),
+      },
     });
     setSavingProfile(false);
 
@@ -106,8 +112,8 @@ export function AccountClient({ user }: { user: CurrentUser }) {
           <CardContent>
             <form onSubmit={handleSaveProfile} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="account-email">Email</Label>
-                <Input id="account-email" value={user.email} disabled />
+                <Label htmlFor="account-email">{user.username ? "Tên đăng nhập" : "Email"}</Label>
+                <Input id="account-email" value={user.username || user.email} disabled />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="account-name">Họ và tên</Label>
@@ -125,6 +131,16 @@ export function AccountClient({ user }: { user: CurrentUser }) {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="09xxxxxxxx"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="account-contact-email">Email liên hệ</Label>
+                <Input
+                  id="account-contact-email"
+                  type="email"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  placeholder="ban@congty.com"
                 />
               </div>
               <div className="space-y-1.5">

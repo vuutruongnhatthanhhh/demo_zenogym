@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
 
   const quote = await createQuoteRequest({
     customerName,
-    customerEmail: user.email,
+    customerEmail: customerEmail?.trim() || "",
     customerPhone,
     companyName,
     address,

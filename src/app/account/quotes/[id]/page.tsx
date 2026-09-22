@@ -4,7 +4,7 @@ import { getCustomerQuoteById } from "@/lib/data/quotes";
 import { getAvailableProducts } from "@/lib/data/products";
 import { getAllCategories } from "@/lib/data/categories";
 import { getPricingSettings } from "@/lib/data/pricing-settings";
-import { CatalogClient } from "@/app/catalog/catalog-client";
+import { EditQuoteClient } from "./edit-quote-client";
 
 export default async function EditCustomerQuotePage({
   params,
@@ -27,18 +27,13 @@ export default async function EditCustomerQuotePage({
   const items = Object.fromEntries(quote.items.map((item) => [item.productId, item.quantity]));
 
   return (
-    <CatalogClient
+    <EditQuoteClient
       products={products}
       categories={categories}
       pricingSettings={pricingSettings}
-      customerName={user.name}
-      customerEmail={user.email}
-      customerPhone={user.phone}
-      customerCompany={user.company}
-      customerAddress={user.address}
-      isAdmin={user.role === "admin"}
-      isLoggedIn
-      resubmitQuote={{ id: quote.id, code: quote.code, createdAt: quote.createdAt, items, note: quote.note }}
+      quote={{ id: quote.id, code: quote.code, createdAt: quote.createdAt }}
+      initialItems={items}
+      initialNote={quote.note}
     />
   );
 }

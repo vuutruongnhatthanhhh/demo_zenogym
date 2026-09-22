@@ -42,7 +42,11 @@ export function AdminSidebar({
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const visibleLinks = isSuperAdmin
-    ? [...links, { href: "/admin/accounts", label: "Quản lý tài khoản", icon: Users }]
+    ? [
+        ...links,
+        { href: "/admin/customers", label: "Khách hàng", icon: Users },
+        { href: "/admin/accounts", label: "Quản lý nhân viên", icon: Users },
+      ]
     : links;
 
   // Close the mobile menu automatically whenever navigation actually happens.

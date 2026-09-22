@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
     const search = params.get("search") ?? undefined;
     const categoryId = params.get("categoryId") ?? undefined;
     const factoryId = params.get("factoryId") ?? undefined;
+    const series = params.get("series") ?? undefined;
     const minPrice = params.has("minPrice") ? Number(params.get("minPrice")) : undefined;
     const maxPrice = params.has("maxPrice") ? Number(params.get("maxPrice")) : undefined;
     const page = params.has("page") ? Number(params.get("page")) : undefined;
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
         search,
         categoryId,
         factoryId,
+        series,
         minPrice: Number.isFinite(minPrice) ? minPrice : undefined,
         maxPrice: Number.isFinite(maxPrice) ? maxPrice : undefined,
         page,

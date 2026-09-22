@@ -3,7 +3,7 @@ import { Dumbbell, ShieldCheck, FileText, Sparkles } from "lucide-react";
 const HIGHLIGHTS = [
   { icon: Dumbbell, text: "Catalog thiết bị tập gym đầy đủ, cập nhật liên tục" },
   { icon: FileText, text: "Gửi yêu cầu báo giá và nhận PDF chi tiết nhanh chóng" },
-  { icon: ShieldCheck, text: "Tài khoản được bảo mật, xác thực qua email" },
+  { icon: ShieldCheck, text: "Đăng ký nhanh chỉ với tên đăng nhập, không cần email" },
 ];
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {

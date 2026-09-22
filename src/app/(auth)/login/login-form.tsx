@@ -12,13 +12,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { GoogleIcon } from "@/components/icons/google-icon";
 import { createClient } from "@/lib/supabase/client";
 import { isSafeRedirectPath } from "@/lib/utils";
+import { usernameToAuthEmail } from "@/lib/customer-auth";
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawRedirect = searchParams.get("redirect");
   const redirectTo = isSafeRedirectPath(rawRedirect) ? rawRedirect : null;
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -28,7 +29,17 @@ export function LoginForm() {
     e.preventDefault();
     setLoading(true);
     const supabase = createClient();
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    // Admins log in with a real email; customers log in with a plain
+    // username — no "@" means it's a username, so translate it to the
+    // internal placeholder email Supabase Auth actually stores.
+    const trimmed = identifier.trim();
+    const email = trimmed.includes("@")
+      ? trimmed
+      : usernameToAuthEmail(trimmed);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
     if (error) {
       setLoading(false);
@@ -36,7 +47,9 @@ export function LoginForm() {
       if (message.includes("banned")) {
         toast.error("Tài khoản của bạn đã bị khoá");
       } else if (message.includes("confirm")) {
-        toast.error("Vui lòng xác nhận email trước khi đăng nhập, kiểm tra hộp thư của bạn");
+        toast.error(
+          "Vui lòng xác nhận email trước khi đăng nhập, kiểm tra hộp thư của bạn",
+        );
       } else {
         toast.error("Email hoặc mật khẩu không đúng");
       }
@@ -50,7 +63,8 @@ export function LoginForm() {
     // otherwise an admin who happened to reach /login from the customer
     // quote-request flow would land back on /catalog with that form
     // reopened instead of going to /admin.
-    const role = (data.user?.app_metadata?.role as string | undefined) ?? "customer";
+    const role =
+      (data.user?.app_metadata?.role as string | undefined) ?? "customer";
     router.push(role === "admin" ? "/admin" : redirectTo || "/catalog");
     router.refresh();
   }
@@ -97,20 +111,22 @@ export function LoginForm() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="identifier">Email hoặc tên đăng nhập</Label>
             <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="ban@congty.com"
+              id="identifier"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              placeholder="Email hoặc tên đăng nhập"
               required
             />
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label htmlFor="password">Mật khẩu</Label>
-              <Link href="/forgot-password" className="text-xs font-medium text-primary hover:underline">
+              <Link
+                href="/forgot-password"
+                className="text-xs font-medium text-primary hover:underline"
+              >
                 Quên mật khẩu?
               </Link>
             </div>
@@ -130,11 +146,19 @@ export function LoginForm() {
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 tabIndex={-1}
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
           </div>
-          <Button type="submit" className="w-full" disabled={loading || googleLoading}>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={loading || googleLoading}
+          >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             Đăng nhập
           </Button>
@@ -143,7 +167,11 @@ export function LoginForm() {
         <p className="text-center text-sm text-muted-foreground">
           Chưa có tài khoản?{" "}
           <Link
-            href={redirectTo ? `/register?redirect=${encodeURIComponent(redirectTo)}` : "/register"}
+            href={
+              redirectTo
+                ? `/register?redirect=${encodeURIComponent(redirectTo)}`
+                : "/register"
+            }
             className="font-medium text-primary hover:underline"
           >
             Đăng ký

@@ -14,6 +14,7 @@ import { getTransporter, MAIL_FROM } from "@/lib/mailer";
 import { formatDate, formatVND } from "@/lib/utils";
 import { QuoteDocument, type QuoteDocumentItem } from "@/lib/pdf/quote-document";
 import { toPdfImageSource } from "@/lib/pdf/pdf-image";
+import { DEFAULT_SELLER_PARTY, type QuotePartyInfo } from "@/lib/pdf/party-info";
 import type { QuoteLineItem } from "@/lib/types";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -37,19 +38,35 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await req.json();
   const items = body.items as QuoteLineItem[];
   const note = body.note as string | undefined;
+  const partyOverrides = body.party as Partial<QuotePartyInfo> | undefined;
+  const customerEmailOverride =
+    typeof body.customerEmail === "string" ? body.customerEmail.trim() : undefined;
 
   if (!Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ error: "Danh sách sản phẩm không hợp lệ" }, { status: 400 });
   }
 
-  const saved = await saveQuotePricing(id, items, note);
+  const finalEmail = customerEmailOverride || existing.customerEmail;
+  if (!finalEmail) {
+    return NextResponse.json({ error: "Vui lòng nhập email khách hàng để gửi báo giá" }, { status: 400 });
+  }
+
+  const party: QuotePartyInfo = {
+    ...DEFAULT_SELLER_PARTY,
+    buyerName: existing.customerName,
+    buyerPhone: existing.customerPhone,
+    buyerAddress: existing.address ?? "",
+    ...partyOverrides,
+  };
+
+  const saved = await saveQuotePricing(id, items, note, party, customerEmailOverride || undefined);
   if (!saved) return NextResponse.json({ error: "Không tìm thấy yêu cầu" }, { status: 404 });
 
   const pdfItems: QuoteDocumentItem[] = await Promise.all(
     items.map(async (item) => ({ ...item, image: (await toPdfImageSource(item.image)) ?? item.image }))
   );
   const pdfBuffer = await renderToBuffer(
-    createElement(QuoteDocument, { quote: saved, items: pdfItems }) as ReactElement<DocumentProps>
+    createElement(QuoteDocument, { quote: saved, items: pdfItems, party }) as ReactElement<DocumentProps>
   );
 
   const total = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);

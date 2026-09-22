@@ -11,6 +11,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getQuoteById } from "@/lib/data/quotes";
 import { QuoteDocument, type QuoteDocumentItem } from "@/lib/pdf/quote-document";
 import { toPdfImageSource } from "@/lib/pdf/pdf-image";
+import { DEFAULT_SELLER_PARTY, type QuotePartyInfo } from "@/lib/pdf/party-info";
 import type { QuoteLineItem } from "@/lib/types";
 
 // Renders the exact PDF that would be emailed to the customer, using the
@@ -30,17 +31,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await req.json();
   const items = body.items as QuoteLineItem[];
   const note = body.note as string | undefined;
+  const partyOverrides = body.party as Partial<QuotePartyInfo> | undefined;
 
   if (!Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ error: "Danh sách sản phẩm không hợp lệ" }, { status: 400 });
   }
+
+  const party: QuotePartyInfo = {
+    ...DEFAULT_SELLER_PARTY,
+    buyerName: quote.customerName,
+    buyerPhone: quote.customerPhone,
+    buyerAddress: quote.address ?? "",
+    ...partyOverrides,
+  };
 
   const previewQuote = { ...quote, quotedItems: items, quotedNote: note };
   const pdfItems: QuoteDocumentItem[] = await Promise.all(
     items.map(async (item) => ({ ...item, image: (await toPdfImageSource(item.image)) ?? item.image }))
   );
   const pdfBuffer = await renderToBuffer(
-    createElement(QuoteDocument, { quote: previewQuote, items: pdfItems }) as ReactElement<DocumentProps>
+    createElement(QuoteDocument, { quote: previewQuote, items: pdfItems, party }) as ReactElement<DocumentProps>
   );
 
   return new NextResponse(new Uint8Array(pdfBuffer), {

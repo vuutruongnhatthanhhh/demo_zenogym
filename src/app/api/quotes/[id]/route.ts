@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { getQuoteById, saveQuotePricing } from "@/lib/data/quotes";
+import { deleteQuote, getQuoteById, saveQuotePricing } from "@/lib/data/quotes";
 import type { QuoteLineItem } from "@/lib/types";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -34,4 +34,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const quote = await saveQuotePricing(id, items, note);
   if (!quote) return NextResponse.json({ error: "Không tìm thấy yêu cầu" }, { status: 404 });
   return NextResponse.json({ quote });
+}
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "admin") {
+    return NextResponse.json({ error: "Không có quyền truy cập" }, { status: 403 });
+  }
+  const { id } = await params;
+  const existing = await getQuoteById(id, user.id, user.isSuperAdmin);
+  if (!existing) return NextResponse.json({ error: "Không tìm thấy yêu cầu" }, { status: 404 });
+
+  await deleteQuote(id);
+  return NextResponse.json({ success: true });
 }

@@ -3,8 +3,17 @@ import type { UserRole } from "@/lib/types";
 
 export interface CurrentUser {
   id: string;
+  /** Empty for username-based customer accounts, which have no real email. */
   email: string;
-  /** Display name: full name if set, otherwise falls back to the email. */
+  /** Only set for username-based customer accounts. */
+  username?: string;
+  /**
+   * Contact email shown on quote requests/contracts — editable, independent
+   * of the login identity (which for username accounts isn't a real email).
+   * Defaults to the real login email for email/Google accounts.
+   */
+  contactEmail: string;
+  /** Display name: full name if set, otherwise falls back to username/email. */
   name: string;
   /** Raw full name as stored, empty string if the user never set one. */
   fullName: string;
@@ -36,11 +45,19 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   const phone = (user.user_metadata?.phone as string | undefined) ?? "";
   const company = (user.user_metadata?.company as string | undefined) ?? "";
   const address = (user.user_metadata?.address as string | undefined) ?? "";
-  const name = fullName || user.email || "";
+  // A username-based customer account has no real email — its Supabase Auth
+  // email is a synthesized placeholder that must never be shown or reused as
+  // a contact address.
+  const username = (user.user_metadata?.username as string | undefined) || undefined;
+  const email = username ? "" : (user.email ?? "");
+  const contactEmail = (user.user_metadata?.contact_email as string | undefined) || email;
+  const name = fullName || username || email || "";
 
   return {
     id: user.id,
-    email: user.email ?? "",
+    email,
+    username,
+    contactEmail,
     name,
     fullName,
     phone,

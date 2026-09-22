@@ -1,16 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { toast } from "sonner";
 import {
   ShoppingCart,
   LogOut,
   LayoutDashboard,
   Search,
   Info,
-  Loader2,
   UserCircle,
   LogIn,
   FileText,
@@ -34,7 +32,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { createClient } from "@/lib/supabase/client";
-import { cn, formatDate, formatVND } from "@/lib/utils";
+import { cn, formatVND } from "@/lib/utils";
 import {
   computePricesUsd,
   usdToVnd,
@@ -58,6 +56,10 @@ export interface CartLine {
 const PENDING_CART_KEY = "zenogym_pending_cart";
 const PENDING_CART_TTL_MS = 60 * 60 * 1000;
 
+// Sentinel tab id for "show every category at once" — distinct from any real
+// category UUID so it can't collide with actual data.
+const ALL_CATEGORY_ID = "all";
+
 export function CatalogClient({
   products,
   categories,
@@ -70,7 +72,6 @@ export function CatalogClient({
   isAdmin,
   isLoggedIn,
   linkCode,
-  resubmitQuote,
 }: {
   products: Product[];
   categories: Category[];
@@ -83,26 +84,13 @@ export function CatalogClient({
   isAdmin: boolean;
   isLoggedIn: boolean;
   linkCode?: string;
-  resubmitQuote?: {
-    id: string;
-    code: string;
-    createdAt: string;
-    items: Record<string, number>;
-    note?: string;
-  };
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [category, setCategory] = useState<string>(
-    () => categories[0]?.id ?? "",
-  );
+  const [category, setCategory] = useState<string>(() => ALL_CATEGORY_ID);
   const [search, setSearch] = useState("");
-  // Nothing is pre-selected — the customer picks what they actually want —
-  // unless we're editing a previously submitted request, in which case we
-  // start from exactly what was in it.
-  const [cart, setCart] = useState<Record<string, number>>(() =>
-    resubmitQuote ? resubmitQuote.items : {},
-  );
+  // Nothing is pre-selected — the customer picks what they actually want.
+  const [cart, setCart] = useState<Record<string, number>>({});
   const [cartOpen, setCartOpen] = useState(false);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
   // Nudges an anonymous visitor to log in as soon as they land on the page
@@ -113,15 +101,6 @@ export function CatalogClient({
     src: string;
     alt: string;
   } | null>(null);
-
-  const [committed, setCommitted] = useState({
-    search: "",
-    categoryId: category,
-  });
-  const [displayedProducts, setDisplayedProducts] = useState<Product[]>(() =>
-    products.filter((p) => p.categoryId === category),
-  );
-  const [loading, setLoading] = useState(false);
 
   // If we just came back from a login redirect, restore the cart selection
   // that was saved before leaving and reopen the dialog so the customer can
@@ -152,51 +131,22 @@ export function CatalogClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Debounce: only commit search/tab changes 400ms after the user stops
-  // typing/clicking, so we don't hit the API on every keystroke.
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      setCommitted({ search, categoryId: category });
-    }, 400);
-    return () => clearTimeout(handle);
-  }, [search, category]);
-
-  const fetchProducts = useCallback(
-    async (filters: { search: string; categoryId: string }) => {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams();
-        if (filters.search.trim()) params.set("search", filters.search.trim());
-        if (filters.categoryId) params.set("categoryId", filters.categoryId);
-
-        const res = await fetch(`/api/products?${params.toString()}`);
-        const data = await res.json();
-        if (!res.ok)
-          throw new Error(data.error ?? "Không tải được danh sách sản phẩm");
-        setDisplayedProducts(data.products);
-      } catch (err) {
-        toast.error(
-          err instanceof Error
-            ? err.message
-            : "Không tải được danh sách sản phẩm",
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
-
-  // Skip the very first run: the server already rendered the default
-  // (unfiltered-by-search, first-tab) view via `products`.
-  const isFirstRun = useRef(true);
-  useEffect(() => {
-    if (isFirstRun.current) {
-      isFirstRun.current = false;
-      return;
-    }
-    fetchProducts(committed);
-  }, [committed, fetchProducts]);
+  // All products are already on the client (see getAvailableProducts), so
+  // tab/search filtering is just an in-memory filter — no network round
+  // trip, no debounce needed, and it stays instant even for a large catalog.
+  const normalizedSearch = search.trim().toLowerCase();
+  const displayedProducts = useMemo(() => {
+    const byCategory =
+      category === ALL_CATEGORY_ID
+        ? products
+        : products.filter((p) => p.categoryId === category);
+    if (!normalizedSearch) return byCategory;
+    return byCategory.filter(
+      (p) =>
+        p.name.toLowerCase().includes(normalizedSearch) ||
+        p.model.toLowerCase().includes(normalizedSearch),
+    );
+  }, [products, category, normalizedSearch]);
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -223,7 +173,10 @@ export function CatalogClient({
 
   const totalItems = cartLines.reduce((sum, l) => sum + l.quantity, 0);
 
-  function updateQuantity(productId: string, quantity: number) {
+  // Stable identities (empty deps — both only use the functional setCart
+  // form) so memoized ProductRows below can skip re-rendering when some
+  // other row's checkbox/quantity changes.
+  const updateQuantity = useCallback((productId: string, quantity: number) => {
     setCart((prev) => {
       if (quantity <= 0) {
         const next = { ...prev };
@@ -232,11 +185,18 @@ export function CatalogClient({
       }
       return { ...prev, [productId]: quantity };
     });
-  }
+  }, []);
 
-  function toggleSelected(productId: string, checked: boolean) {
-    updateQuantity(productId, checked ? 1 : 0);
-  }
+  const toggleSelected = useCallback(
+    (productId: string, checked: boolean) => {
+      updateQuantity(productId, checked ? 1 : 0);
+    },
+    [updateQuantity],
+  );
+
+  const handlePreview = useCallback((src: string, alt: string) => {
+    setPreviewImage({ src, alt });
+  }, []);
 
   const selectedInViewCount = displayedProducts.filter(
     (p) => cart[p.id] !== undefined,
@@ -257,14 +217,6 @@ export function CatalogClient({
       }
       return next;
     });
-  }
-
-  function retailPriceVnd(product: Product) {
-    const retailUsd = computePricesUsd(
-      product.priceUsd,
-      pricingSettings,
-    ).retailUsd;
-    return usdToVnd(retailUsd, pricingSettings.usdToVndRate);
   }
 
   // Submitting a quote request requires an account — browsing doesn't. Show
@@ -385,6 +337,12 @@ export function CatalogClient({
         </div>
 
         <div className="mb-2 flex flex-wrap gap-1 border-b">
+          <TabButton
+            label="Tất cả"
+            count={products.length}
+            active={category === ALL_CATEGORY_ID}
+            onClick={() => setCategory(ALL_CATEGORY_ID)}
+          />
           {categories.map((c) => (
             <TabButton
               key={c.id}
@@ -399,21 +357,9 @@ export function CatalogClient({
         <div className="mb-4 flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm text-foreground">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
           <p>
-            {resubmitQuote
-              ? "Bạn đang chỉnh sửa yêu cầu báo giá đã gửi. Điều chỉnh sản phẩm/số lượng rồi gửi lại."
-              : "Tick chọn những sản phẩm bạn muốn nhận báo giá, sau đó nhấn \"Gửi yêu cầu báo giá\"."}
+            Tick chọn những sản phẩm bạn muốn nhận báo giá, sau đó nhấn &quot;Gửi yêu cầu báo giá&quot;.
           </p>
         </div>
-
-        {resubmitQuote ? (
-          <div className="mb-3">
-            <h2 className="text-lg font-bold text-foreground">Yêu cầu báo giá đã gửi</h2>
-            <p className="text-sm text-muted-foreground">
-              Mã: <span className="font-medium text-foreground">{resubmitQuote.code}</span> · Gửi lúc{" "}
-              {formatDate(resubmitQuote.createdAt)}
-            </p>
-          </div>
-        ) : null}
 
         <Card
           className={cn(
@@ -447,16 +393,7 @@ export function CatalogClient({
                   </tr>
                 </thead>
                 <tbody>
-                  {loading ? (
-                    <tr>
-                      <td
-                        colSpan={7}
-                        className="px-3 py-10 text-center text-muted-foreground"
-                      >
-                        <Loader2 className="mx-auto h-5 w-5 animate-spin" />
-                      </td>
-                    </tr>
-                  ) : displayedProducts.length === 0 ? (
+                  {displayedProducts.length === 0 ? (
                     <tr>
                       <td
                         colSpan={7}
@@ -466,78 +403,18 @@ export function CatalogClient({
                       </td>
                     </tr>
                   ) : (
-                    displayedProducts.map((product) => {
-                      const checked = cart[product.id] !== undefined;
-                      return (
-                        <tr
-                          key={product.id}
-                          className={cn(
-                            "border-b last:border-0 hover:bg-accent/30",
-                            checked &&
-                              "bg-primary/10 font-bold text-foreground",
-                          )}
-                        >
-                          <td className="px-3 py-2">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={(e) =>
-                                toggleSelected(product.id, e.target.checked)
-                              }
-                              className="h-4 w-4 rounded border-input accent-primary"
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setPreviewImage({
-                                  src: product.image,
-                                  alt: product.name,
-                                })
-                              }
-                              className="relative block h-12 w-12 shrink-0 overflow-hidden rounded bg-slate-100 transition-opacity hover:opacity-80"
-                            >
-                              <Image
-                                src={product.image}
-                                alt={product.name}
-                                fill
-                                className="object-cover"
-                              />
-                            </button>
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground">
-                            {product.model}
-                          </td>
-                          <td className="max-w-[280px] px-3 py-2 font-medium">
-                            <span className="line-clamp-2">{product.name}</span>
-                          </td>
-                          <td className="px-3 py-2">
-                            <Badge variant="outline" className="text-[10px]">
-                              {product.categoryName}
-                            </Badge>
-                          </td>
-                          <td className="px-3 py-2 text-right font-semibold text-primary">
-                            {formatVND(retailPriceVnd(product))}
-                          </td>
-                          <td className="px-3 py-2">
-                            <Input
-                              type="number"
-                              min={1}
-                              value={cart[product.id] ?? 1}
-                              disabled={!checked}
-                              onChange={(e) =>
-                                updateQuantity(
-                                  product.id,
-                                  Math.max(1, Number(e.target.value) || 1),
-                                )
-                              }
-                              className="h-8 w-16 text-center mx-auto"
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })
+                    displayedProducts.map((product) => (
+                      <ProductRow
+                        key={product.id}
+                        product={product}
+                        checked={cart[product.id] !== undefined}
+                        quantity={cart[product.id] ?? 1}
+                        pricingSettings={pricingSettings}
+                        onToggle={toggleSelected}
+                        onQuantityChange={updateQuantity}
+                        onPreview={handlePreview}
+                      />
+                    ))
                   )}
                 </tbody>
               </table>
@@ -548,7 +425,7 @@ export function CatalogClient({
         <div className="mt-4 flex flex-col items-center gap-1.5 sm:items-end">
           <Button size="lg" onClick={openCart} disabled={totalItems === 0}>
             <ShoppingCart className="mr-2 h-4 w-4" />
-            {resubmitQuote ? "Gửi lại yêu cầu báo giá" : "Gửi yêu cầu báo giá"}
+            Gửi yêu cầu báo giá
             {totalItems > 0 ? (
               <span className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-bold text-destructive-foreground">
                 {totalItems}
@@ -572,8 +449,7 @@ export function CatalogClient({
         defaultAddress={customerAddress}
         linkCode={linkCode}
         isLoggedIn={isLoggedIn}
-        resubmitId={resubmitQuote?.id}
-        initialNote={resubmitQuote?.note}
+        onUpdateQuantity={updateQuantity}
       />
 
       {totalItems > 0 && !cartOpen ? (
@@ -666,6 +542,79 @@ export function CatalogClient({
     </div>
   );
 }
+
+// Memoized so ticking one row's checkbox/quantity doesn't force React to
+// re-render every other row in a catalog that can have 1000+ products —
+// checked/quantity are passed as plain primitives, so React.memo's default
+// shallow comparison correctly bails out for every row except the one that
+// actually changed.
+const ProductRow = memo(function ProductRow({
+  product,
+  checked,
+  quantity,
+  pricingSettings,
+  onToggle,
+  onQuantityChange,
+  onPreview,
+}: {
+  product: Product;
+  checked: boolean;
+  quantity: number;
+  pricingSettings: PricingSettings;
+  onToggle: (productId: string, checked: boolean) => void;
+  onQuantityChange: (productId: string, quantity: number) => void;
+  onPreview: (src: string, alt: string) => void;
+}) {
+  const retailUsd = computePricesUsd(product.priceUsd, pricingSettings).retailUsd;
+  const retailVnd = usdToVnd(retailUsd, pricingSettings.usdToVndRate);
+
+  return (
+    <tr
+      className={cn(
+        "border-b last:border-0 hover:bg-accent/30",
+        checked && "bg-primary/10 font-bold text-foreground",
+      )}
+    >
+      <td className="px-3 py-2">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onToggle(product.id, e.target.checked)}
+          className="h-4 w-4 rounded border-input accent-primary"
+        />
+      </td>
+      <td className="px-3 py-2">
+        <button
+          type="button"
+          onClick={() => onPreview(product.image, product.name)}
+          className="relative block h-12 w-12 shrink-0 overflow-hidden rounded bg-slate-100 transition-opacity hover:opacity-80"
+        >
+          <Image src={product.image} alt={product.name} fill className="object-cover" />
+        </button>
+      </td>
+      <td className="px-3 py-2 text-muted-foreground">{product.model}</td>
+      <td className="max-w-[280px] px-3 py-2 font-medium">
+        <span className="line-clamp-2">{product.name}</span>
+      </td>
+      <td className="px-3 py-2">
+        <Badge variant="outline" className="text-[10px]">
+          {product.categoryName}
+        </Badge>
+      </td>
+      <td className="px-3 py-2 text-right font-semibold text-primary">{formatVND(retailVnd)}</td>
+      <td className="px-3 py-2">
+        <Input
+          type="number"
+          min={1}
+          value={quantity}
+          disabled={!checked}
+          onChange={(e) => onQuantityChange(product.id, Math.max(1, Number(e.target.value) || 1))}
+          className="h-8 w-16 text-center mx-auto"
+        />
+      </td>
+    </tr>
+  );
+});
 
 function TabButton({
   label,

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Eye, EyeOff, Loader2, MailCheck } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,25 +12,26 @@ import { Card, CardContent } from "@/components/ui/card";
 import { GoogleIcon } from "@/components/icons/google-icon";
 import { createClient } from "@/lib/supabase/client";
 import { isSafeRedirectPath } from "@/lib/utils";
+import { usernameToAuthEmail } from "@/lib/customer-auth";
 
 export function RegisterForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const rawRedirect = searchParams.get("redirect");
   const redirectTo = isSafeRedirectPath(rawRedirect) ? rawRedirect : null;
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!fullName.trim() || !phone.trim() || !address.trim()) {
-      toast.error("Vui lòng nhập đầy đủ họ tên, số điện thoại và địa chỉ");
+    if (!fullName.trim() || !phone.trim() || !address.trim() || !username.trim()) {
+      toast.error("Vui lòng nhập đầy đủ thông tin");
       return;
     }
     if (password.length < 6) {
@@ -46,22 +47,35 @@ export function RegisterForm() {
         fullName: fullName.trim(),
         phone: phone.trim(),
         address: address.trim(),
-        email,
+        username: username.trim(),
         password,
-        redirect: redirectTo ?? undefined,
       }),
     });
-    setLoading(false);
 
     if (!res.ok) {
+      setLoading(false);
       const data = await res.json().catch(() => ({}));
       toast.error(data.error ?? "Đăng ký thất bại, vui lòng thử lại");
       return;
     }
 
-    // No session yet — the account stays unconfirmed until the customer
-    // clicks the link in the email we just sent.
-    setAwaitingConfirmation(true);
+    // No email confirmation needed — sign the customer in right away with
+    // the same credentials they just registered with.
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPassword({
+      email: usernameToAuthEmail(username),
+      password,
+    });
+    setLoading(false);
+    if (error) {
+      toast.error("Đăng ký thành công, vui lòng đăng nhập");
+      router.push("/login");
+      return;
+    }
+
+    toast.success("Đăng ký thành công!");
+    router.push(redirectTo || "/catalog");
+    router.refresh();
   }
 
   async function handleGoogleRegister() {
@@ -78,21 +92,6 @@ export function RegisterForm() {
       setGoogleLoading(false);
       toast.error("Đăng ký với Google thất bại");
     }
-  }
-
-  if (awaitingConfirmation) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
-          <MailCheck className="h-10 w-10 text-primary" />
-          <p className="font-medium">Kiểm tra email của bạn</p>
-          <p className="text-sm text-muted-foreground">
-            ZenoGym đã gửi một email xác nhận tới <strong>{email}</strong>. Bấm vào đường link trong
-            email để hoàn tất đăng ký.
-          </p>
-        </CardContent>
-      </Card>
-    );
   }
 
   return (
@@ -151,13 +150,12 @@ export function RegisterForm() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="reg-email">Email</Label>
+            <Label htmlFor="reg-username">Tên đăng nhập</Label>
             <Input
-              id="reg-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="ban@congty.com"
+              id="reg-username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="vd: nguyenvana"
               required
             />
           </div>

@@ -49,7 +49,7 @@ export async function sendQuoteRequestNotification(
         <p style="color:#64748b;">${formatDate(quote.createdAt)} · Lần ${requestNumber}</p>
         <p><strong>Khách hàng:</strong> ${quote.customerName}</p>
         <p><strong>Điện thoại:</strong> ${quote.customerPhone}</p>
-        <p><strong>Email:</strong> ${quote.customerEmail}</p>
+        ${quote.customerEmail ? `<p><strong>Email:</strong> ${quote.customerEmail}</p>` : ""}
         ${quote.address ? `<p><strong>Địa chỉ:</strong> ${quote.address}</p>` : ""}
         ${quote.companyName ? `<p><strong>Công ty:</strong> ${quote.companyName}</p>` : ""}
         ${quote.note ? `<p><strong>Ghi chú:</strong> ${quote.note}</p>` : ""}

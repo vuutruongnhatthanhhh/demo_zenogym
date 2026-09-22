@@ -22,7 +22,7 @@ export default async function CatalogPage() {
       categories={categories}
       pricingSettings={pricingSettings}
       customerName={user?.name ?? ""}
-      customerEmail={user?.email ?? ""}
+      customerEmail={user?.contactEmail ?? ""}
       customerPhone={user?.phone ?? ""}
       customerCompany={user?.company ?? ""}
       customerAddress={user?.address ?? ""}

@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getQuoteCodesByAdmin, getQuoteCodeByCode } from "@/lib/data/quote-codes";
+import type { QuotePartyInfo } from "@/lib/pdf/party-info";
 import type { QuoteLineItem, QuoteRequest, QuoteRequestItem, QuoteStatus } from "@/lib/types";
 
 interface QuoteRow {
@@ -17,6 +18,7 @@ interface QuoteRow {
   quoted_items: QuoteLineItem[] | null;
   quoted_total: number | null;
   quoted_note: string | null;
+  quoted_party: QuotePartyInfo | null;
   quoted_at: string | null;
   sent_at: string | null;
   sent_count: number;
@@ -42,6 +44,7 @@ function mapQuote(row: QuoteRow): QuoteRequest {
     quotedItems: row.quoted_items ?? undefined,
     quotedTotal: row.quoted_total ?? undefined,
     quotedNote: row.quoted_note ?? undefined,
+    quotedParty: row.quoted_party ?? undefined,
     quotedAt: row.quoted_at ?? undefined,
     sentAt: row.sent_at ?? undefined,
     sentCount: row.sent_count ?? 0,
@@ -121,7 +124,7 @@ const RATE_LIMIT_MAX_SUBMISSIONS = 3;
 // this caps how many quote requests the same email, phone, or IP can create
 // within a short window regardless of how they were submitted.
 export async function isQuoteSubmissionRateLimited(params: {
-  email: string;
+  email?: string;
   phone: string;
   ip?: string;
 }): Promise<boolean> {
@@ -132,14 +135,18 @@ export async function isQuoteSubmissionRateLimited(params: {
     admin
       .from("quotes")
       .select("id", { count: "exact", head: true })
-      .ilike("customer_email", params.email.trim())
-      .gte("created_at", since),
-    admin
-      .from("quotes")
-      .select("id", { count: "exact", head: true })
       .eq("customer_phone", params.phone.trim())
       .gte("created_at", since),
   ];
+  if (params.email?.trim()) {
+    checks.push(
+      admin
+        .from("quotes")
+        .select("id", { count: "exact", head: true })
+        .ilike("customer_email", params.email.trim())
+        .gte("created_at", since)
+    );
+  }
   if (params.ip) {
     checks.push(
       admin
@@ -262,7 +269,9 @@ export async function resubmitQuoteRequest(
 export async function saveQuotePricing(
   id: string,
   quotedItems: QuoteLineItem[],
-  quotedNote?: string
+  quotedNote?: string,
+  quotedParty?: QuotePartyInfo,
+  customerEmail?: string
 ): Promise<QuoteRequest | undefined> {
   const admin = createAdminClient();
   const existing = await fetchQuoteRaw(id);
@@ -278,6 +287,11 @@ export async function saveQuotePricing(
       quoted_note: quotedNote ?? null,
       status: existing.status === "sent" ? "sent" : "quoted",
       quoted_at: new Date().toISOString(),
+      // Only touch quoted_party/customer_email when explicitly given (e.g.
+      // preview/send after the party-confirm dialog) — a plain draft save
+      // has neither and must not wipe out what was previously confirmed.
+      ...(quotedParty !== undefined ? { quoted_party: quotedParty } : {}),
+      ...(customerEmail ? { customer_email: customerEmail } : {}),
     })
     .eq("id", id)
     .select("*")
@@ -303,4 +317,10 @@ export async function markQuoteSent(id: string): Promise<QuoteRequest | undefine
     .maybeSingle();
   if (error) throw error;
   return data ? mapQuote(data) : undefined;
+}
+
+export async function deleteQuote(id: string): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin.from("quotes").delete().eq("id", id);
+  if (error) throw error;
 }

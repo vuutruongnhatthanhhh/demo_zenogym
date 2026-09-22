@@ -2,6 +2,7 @@ import path from "node:path";
 import { Document, Page, View, Text, Image, StyleSheet, Font } from "@react-pdf/renderer";
 import type { QuoteLineItem, QuoteRequest } from "@/lib/types";
 import type { PdfImageSource } from "./pdf-image";
+import type { QuotePartyInfo } from "./party-info";
 
 export interface QuoteDocumentItem extends Omit<QuoteLineItem, "image"> {
   image: PdfImageSource | string;
@@ -77,9 +78,10 @@ const styles = StyleSheet.create({
 export interface QuoteDocumentProps {
   quote: QuoteRequest;
   items: QuoteDocumentItem[];
+  party: QuotePartyInfo;
 }
 
-export function QuoteDocument({ quote, items }: QuoteDocumentProps) {
+export function QuoteDocument({ quote, items, party }: QuoteDocumentProps) {
   const total = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const modelByProductId = new Map(quote.items.map((item) => [item.productId, item.model]));
   // getDate()/getMonth()/getFullYear() read the server's local timezone,
@@ -106,19 +108,17 @@ export function QuoteDocument({ quote, items }: QuoteDocumentProps) {
           báo giá như sau:
         </Text>
 
-        <Text style={styles.partyLineBold}>
-          BÊN BÁN HÀNG (BÊN A): CÔNG TY TNHH ĐẦU TƯ PHÁT TRIỂN DỊCH VỤ CỘNG ĐỒNG VIỆT.
-        </Text>
-        <Text style={styles.partyLine}>Địa chỉ: Số 1137 Huỳnh Tấn Phát, Phú Thuận, TP.HCM.</Text>
-        <Text style={styles.partyLine}>MST: 0314243469</Text>
-        <Text style={styles.partyLine}>Đại diện: Trần Ngọc Châu</Text>
-        <Text style={styles.partyLine}>Chức vụ: Giám đốc</Text>
+        <Text style={styles.partyLineBold}>BÊN BÁN HÀNG (BÊN A): {party.sellerName}.</Text>
+        <Text style={styles.partyLine}>Địa chỉ: {party.sellerAddress}.</Text>
+        <Text style={styles.partyLine}>MST: {party.sellerTaxId}</Text>
+        <Text style={styles.partyLine}>Đại diện: {party.sellerRepresentative}</Text>
+        <Text style={styles.partyLine}>Chức vụ: {party.sellerPosition}</Text>
 
         <View style={styles.spacer} />
 
-        <Text style={styles.partyLineBold}>BÊN MUA HÀNG (BÊN B): {quote.customerName}</Text>
-        <Text style={styles.partyLine}>SĐT: {quote.customerPhone}</Text>
-        <Text style={styles.partyLine}>Địa chỉ: {quote.address || "........................................"}</Text>
+        <Text style={styles.partyLineBold}>BÊN MUA HÀNG (BÊN B): {party.buyerName}</Text>
+        <Text style={styles.partyLine}>SĐT: {party.buyerPhone}</Text>
+        <Text style={styles.partyLine}>Địa chỉ: {party.buyerAddress || "........................................"}</Text>
 
         <View style={styles.table}>
           <View style={styles.tableHeaderRow}>
@@ -133,7 +133,7 @@ export function QuoteDocument({ quote, items }: QuoteDocumentProps) {
           {items.map((item, idx) => (
             <View style={styles.tableRow} key={`${item.productId}-${idx}`} wrap={false}>
               <Text style={styles.colIndex}>{idx + 1}</Text>
-              <Text style={styles.colModel}>{modelByProductId.get(item.productId) ?? "-"}</Text>
+              <Text style={styles.colModel}>{item.model ?? modelByProductId.get(item.productId) ?? "-"}</Text>
               <Text style={styles.colName}>{item.name}</Text>
               <View style={styles.colImage}>
                 <Image style={styles.productImage} src={item.image} />

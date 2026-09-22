@@ -1,3 +1,5 @@
+import type { QuotePartyInfo } from "./pdf/party-info";
+
 export interface Category {
   id: string;
   name: string;
@@ -23,6 +25,8 @@ export interface Product {
   categoryName: string;
   factoryId: string;
   factoryName: string;
+  /** Auto-derived from `model` — see src/lib/series.ts. */
+  series: string;
   description: string;
   available: boolean;
   createdAt: string;
@@ -50,6 +54,19 @@ export interface QuoteLineItem {
   image: string;
   quantity: number;
   unitPrice: number;
+  /**
+   * Snapshot fields so a line is self-sufficient for category grouping and
+   * cost/retail reference prices — needed for products the admin added
+   * directly on the quote (not part of the customer's original request, so
+   * they have no entry in `QuoteRequest.items` to fall back to). Optional
+   * for backward compat with quotes saved before this existed.
+   */
+  model?: string;
+  categoryId?: string;
+  categoryName?: string;
+  factoryId?: string;
+  factoryName?: string;
+  factoryPriceUsd?: number;
 }
 
 export interface QuoteRequest {
@@ -67,6 +84,7 @@ export interface QuoteRequest {
   quotedItems?: QuoteLineItem[];
   quotedTotal?: number;
   quotedNote?: string;
+  quotedParty?: QuotePartyInfo;
   quotedAt?: string;
   sentAt?: string;
   sentCount: number;
