@@ -36,17 +36,26 @@ export function QuickQuoteClient({
   const [cart, setCart] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
 
+  // Scoped to the active category tab first — series options and the
+  // "series" filter itself only ever apply within whichever tab is open, so
+  // a series chosen under one category can never silently hide everything
+  // after switching to a tab that doesn't have it (it gets reset instead,
+  // see handleCategoryChange).
+  const productsInCategory = useMemo(
+    () => (category === ALL_CATEGORY_ID ? products : products.filter((p) => p.categoryId === category)),
+    [products, category]
+  );
+
   const normalizedSearch = search.trim().toLowerCase();
   const displayedProducts = useMemo(() => {
-    let list =
-      category === ALL_CATEGORY_ID ? products : products.filter((p) => p.categoryId === category);
+    let list = productsInCategory;
     if (series !== ALL_SERIES_ID) list = list.filter((p) => p.series === series);
     if (!normalizedSearch) return list;
     return list.filter(
       (p) =>
         p.name.toLowerCase().includes(normalizedSearch) || p.model.toLowerCase().includes(normalizedSearch)
     );
-  }, [products, category, series, normalizedSearch]);
+  }, [productsInCategory, series, normalizedSearch]);
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -56,9 +65,16 @@ export function QuickQuoteClient({
 
   const seriesList = useMemo(() => {
     const values = new Set<string>();
-    for (const p of products) if (p.series) values.add(p.series);
+    for (const p of productsInCategory) if (p.series) values.add(p.series);
     return Array.from(values).sort((a, b) => a.localeCompare(b));
-  }, [products]);
+  }, [productsInCategory]);
+
+  // Switching tabs resets the series filter — a series picked under one
+  // category has no guaranteed meaning (or any matches at all) under another.
+  function handleCategoryChange(nextCategory: string) {
+    setCategory(nextCategory);
+    setSeries(ALL_SERIES_ID);
+  }
 
   // Stable identities so memoized rows only re-render for the row that
   // actually changed — same fix applied to /catalog for the same reason.
@@ -207,7 +223,7 @@ export function QuickQuoteClient({
               label="Tất cả"
               count={products.length}
               active={category === ALL_CATEGORY_ID}
-              onClick={() => setCategory(ALL_CATEGORY_ID)}
+              onClick={() => handleCategoryChange(ALL_CATEGORY_ID)}
             />
             {categories.map((c) => (
               <TabButton
@@ -215,7 +231,7 @@ export function QuickQuoteClient({
                 label={c.name}
                 count={categoryCounts.get(c.id) ?? 0}
                 active={category === c.id}
-                onClick={() => setCategory(c.id)}
+                onClick={() => handleCategoryChange(c.id)}
               />
             ))}
           </div>
@@ -228,6 +244,7 @@ export function QuickQuoteClient({
                     <th className="w-10 px-3 py-2 font-medium"></th>
                     <th className="w-16 px-3 py-2 font-medium"></th>
                     <th className="px-3 py-2 font-medium">Model</th>
+                    <th className="px-3 py-2 font-medium">Series</th>
                     <th className="px-3 py-2 font-medium">Tên sản phẩm</th>
                     <th className="px-3 py-2 font-medium">Loại</th>
                     <th className="w-24 px-3 py-2 text-center font-medium">Số lượng</th>
@@ -236,7 +253,7 @@ export function QuickQuoteClient({
                 <tbody>
                   {displayedProducts.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-3 py-10 text-center text-muted-foreground">
+                      <td colSpan={7} className="px-3 py-10 text-center text-muted-foreground">
                         Không tìm thấy sản phẩm phù hợp.
                       </td>
                     </tr>
@@ -303,12 +320,8 @@ const QuickProductRow = memo(function QuickProductRow({
           <Image src={product.image} alt={product.name} fill className="object-cover" />
         </div>
       </td>
-      <td className="px-3 py-2 text-muted-foreground">
-        {product.model}
-        {product.series ? (
-          <p className="text-[10px] text-muted-foreground/70">Series: {product.series}</p>
-        ) : null}
-      </td>
+      <td className="px-3 py-2 text-muted-foreground">{product.model}</td>
+      <td className="px-3 py-2 text-muted-foreground">{product.series || "-"}</td>
       <td className="max-w-[280px] px-3 py-2 font-medium">
         <span className="line-clamp-2">{product.name}</span>
       </td>

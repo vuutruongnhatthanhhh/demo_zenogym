@@ -28,6 +28,11 @@ async function loadEnv() {
   }
 }
 
+// Single-letter series that bucket too many unrelated models together get
+// split one level deeper using the digit right after the letter
+// ("A7013" -> "A7", "A8055" -> "A8", "A9101" -> "A9").
+const DEEP_SPLIT_SERIES = new Set(["A"]);
+
 // "F12A" -> "F", "F10" -> "F", "SYT-DP214" -> "SYT-DP", "SQ7017" -> "SQ".
 // Models starting straight with a digit ("1020", "360B", "8400-2") have no
 // meaningful series -> "".
@@ -35,7 +40,14 @@ function deriveSeries(model) {
   const trimmed = (model ?? "").trim();
   const match = trimmed.match(/^[^\d]+/);
   if (!match) return "";
-  return match[0].replace(/[-\s]+$/, "");
+  const base = match[0].replace(/[-\s]+$/, "");
+
+  if (DEEP_SPLIT_SERIES.has(base)) {
+    const nextDigit = trimmed.slice(match[0].length).match(/^\d/);
+    if (nextDigit) return base + nextDigit[0];
+  }
+
+  return base;
 }
 
 await loadEnv();

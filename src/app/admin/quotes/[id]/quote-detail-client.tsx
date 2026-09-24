@@ -242,11 +242,20 @@ export function QuoteDetailClient({
       : distinctFactories.find((f) => f.id === factoryFilter) ?? { name: "Không rõ", count: 0 };
 
   // "Thêm sản phẩm" dialog's own search/tab filtering over the full catalog
-  // — independent of the price table's tabs above.
+  // — independent of the price table's tabs above. Scoped to the active
+  // category tab first — series options and the "series" filter itself only
+  // ever apply within whichever tab is open, so a series chosen under one
+  // category can't silently hide everything after switching tabs (it gets
+  // reset instead, see handleAddCategoryChange).
+  const addProductsInCategory = useMemo(
+    () =>
+      addCategory === ALL_CATEGORY_TAB_ID ? products : products.filter((p) => p.categoryId === addCategory),
+    [products, addCategory]
+  );
+
   const addNormalizedSearch = addSearch.trim().toLowerCase();
   const addDialogProducts = useMemo(() => {
-    let list =
-      addCategory === ALL_CATEGORY_TAB_ID ? products : products.filter((p) => p.categoryId === addCategory);
+    let list = addProductsInCategory;
     if (addSeries !== ALL_CATEGORY_TAB_ID) list = list.filter((p) => p.series === addSeries);
     if (!addNormalizedSearch) return list;
     return list.filter(
@@ -254,19 +263,26 @@ export function QuoteDetailClient({
         p.name.toLowerCase().includes(addNormalizedSearch) ||
         p.model.toLowerCase().includes(addNormalizedSearch)
     );
-  }, [products, addCategory, addSeries, addNormalizedSearch]);
+  }, [addProductsInCategory, addSeries, addNormalizedSearch]);
 
   const addSeriesList = useMemo(() => {
     const values = new Set<string>();
-    for (const p of products) if (p.series) values.add(p.series);
+    for (const p of addProductsInCategory) if (p.series) values.add(p.series);
     return Array.from(values).sort((a, b) => a.localeCompare(b));
-  }, [products]);
+  }, [addProductsInCategory]);
 
   const addCategoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const p of products) counts.set(p.categoryId, (counts.get(p.categoryId) ?? 0) + 1);
     return counts;
   }, [products]);
+
+  // Switching tabs resets the series filter — a series picked under one
+  // category has no guaranteed meaning (or any matches at all) under another.
+  function handleAddCategoryChange(nextCategory: string) {
+    setAddCategory(nextCategory);
+    setAddSeries(ALL_CATEGORY_TAB_ID);
+  }
 
   function lineCategory(line: QuoteLineItem) {
     const source = lineSource(line);
@@ -1029,7 +1045,7 @@ export function QuoteDetailClient({
               label="Tất cả"
               count={products.length}
               active={addCategory === ALL_CATEGORY_TAB_ID}
-              onClick={() => setAddCategory(ALL_CATEGORY_TAB_ID)}
+              onClick={() => handleAddCategoryChange(ALL_CATEGORY_TAB_ID)}
             />
             {categories.map((c) => (
               <TabButton
@@ -1037,7 +1053,7 @@ export function QuoteDetailClient({
                 label={c.name}
                 count={addCategoryCounts.get(c.id) ?? 0}
                 active={addCategory === c.id}
-                onClick={() => setAddCategory(c.id)}
+                onClick={() => handleAddCategoryChange(c.id)}
               />
             ))}
           </div>
@@ -1048,6 +1064,8 @@ export function QuoteDetailClient({
                 <tr className="sticky top-0 z-10 border-b bg-slate-50 text-left text-xs text-muted-foreground">
                   <th className="w-10 px-3 py-2 font-medium"></th>
                   <th className="w-16 px-3 py-2 font-medium"></th>
+                  <th className="px-3 py-2 font-medium">Model</th>
+                  <th className="px-3 py-2 font-medium">Series</th>
                   <th className="px-3 py-2 font-medium">Tên sản phẩm</th>
                   <th className="px-3 py-2 text-right font-medium">Giá sỉ mặc định</th>
                 </tr>
@@ -1055,7 +1073,7 @@ export function QuoteDetailClient({
               <tbody>
                 {addDialogProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-3 py-10 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-3 py-10 text-center text-muted-foreground">
                       Không tìm thấy sản phẩm phù hợp.
                     </td>
                   </tr>
@@ -1128,12 +1146,11 @@ const AddProductRow = memo(function AddProductRow({
           <Image src={product.image} alt={product.name} fill className="object-cover" />
         </div>
       </td>
+      <td className="px-3 py-2 text-muted-foreground">{product.model}</td>
+      <td className="px-3 py-2 text-muted-foreground">{product.series || "-"}</td>
       <td className="max-w-[280px] px-3 py-2 font-medium">
         <span className="line-clamp-2">{product.name}</span>
-        <p className="text-xs font-normal text-muted-foreground">
-          {product.model} · {product.categoryName}
-          {product.series ? ` · Series: ${product.series}` : ""}
-        </p>
+        <p className="text-xs font-normal text-muted-foreground">{product.categoryName}</p>
       </td>
       <td className="px-3 py-2 text-right font-semibold text-primary">{formatVND(wholesaleVnd)}</td>
     </tr>
