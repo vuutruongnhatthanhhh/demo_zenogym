@@ -59,6 +59,7 @@ const PENDING_CART_TTL_MS = 60 * 60 * 1000;
 // Sentinel tab id for "show every category at once" — distinct from any real
 // category UUID so it can't collide with actual data.
 const ALL_CATEGORY_ID = "all";
+const ALL_SERIES_ID = "all";
 
 export function CatalogClient({
   products,
@@ -88,6 +89,7 @@ export function CatalogClient({
   const router = useRouter();
   const pathname = usePathname();
   const [category, setCategory] = useState<string>(() => ALL_CATEGORY_ID);
+  const [series, setSeries] = useState<string>(ALL_SERIES_ID);
   const [search, setSearch] = useState("");
   // Nothing is pre-selected — the customer picks what they actually want.
   const [cart, setCart] = useState<Record<string, number>>({});
@@ -134,19 +136,43 @@ export function CatalogClient({
   // All products are already on the client (see getAvailableProducts), so
   // tab/search filtering is just an in-memory filter — no network round
   // trip, no debounce needed, and it stays instant even for a large catalog.
-  const normalizedSearch = search.trim().toLowerCase();
-  const displayedProducts = useMemo(() => {
-    const byCategory =
+  //
+  // Scoped to the active category tab first — series options and the
+  // "series" filter itself only ever apply within whichever tab is open, so
+  // a series chosen under one category can't silently hide everything after
+  // switching tabs (it gets reset instead, see handleCategoryChange).
+  const productsInCategory = useMemo(
+    () =>
       category === ALL_CATEGORY_ID
         ? products
-        : products.filter((p) => p.categoryId === category);
-    if (!normalizedSearch) return byCategory;
-    return byCategory.filter(
+        : products.filter((p) => p.categoryId === category),
+    [products, category],
+  );
+
+  const normalizedSearch = search.trim().toLowerCase();
+  const displayedProducts = useMemo(() => {
+    let list = productsInCategory;
+    if (series !== ALL_SERIES_ID) list = list.filter((p) => p.series === series);
+    if (!normalizedSearch) return list;
+    return list.filter(
       (p) =>
         p.name.toLowerCase().includes(normalizedSearch) ||
         p.model.toLowerCase().includes(normalizedSearch),
     );
-  }, [products, category, normalizedSearch]);
+  }, [productsInCategory, series, normalizedSearch]);
+
+  const seriesList = useMemo(() => {
+    const values = new Set<string>();
+    for (const p of productsInCategory) if (p.series) values.add(p.series);
+    return Array.from(values).sort((a, b) => a.localeCompare(b));
+  }, [productsInCategory]);
+
+  // Switching tabs resets the series filter — a series picked under one
+  // category has no guaranteed meaning (or any matches at all) under another.
+  function handleCategoryChange(nextCategory: string) {
+    setCategory(nextCategory);
+    setSeries(ALL_SERIES_ID);
+  }
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -326,14 +352,33 @@ export function CatalogClient({
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6">
-        <div className="relative mb-4 w-full sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm theo tên sản phẩm hoặc model..."
-            className="pl-8"
-          />
+        <div className="mb-4 flex flex-wrap items-end gap-3">
+          <div className="relative w-full sm:max-w-xs">
+            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Tìm theo tên sản phẩm hoặc model..."
+              className="pl-8"
+            />
+          </div>
+          {seriesList.length > 0 ? (
+            <div className="w-40 space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Series</label>
+              <select
+                value={series}
+                onChange={(e) => setSeries(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+              >
+                <option value={ALL_SERIES_ID}>Tất cả</option>
+                {seriesList.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
         </div>
 
         <div className="mb-2 flex flex-wrap gap-1 border-b">
@@ -341,7 +386,7 @@ export function CatalogClient({
             label="Tất cả"
             count={products.length}
             active={category === ALL_CATEGORY_ID}
-            onClick={() => setCategory(ALL_CATEGORY_ID)}
+            onClick={() => handleCategoryChange(ALL_CATEGORY_ID)}
           />
           {categories.map((c) => (
             <TabButton
@@ -349,7 +394,7 @@ export function CatalogClient({
               label={c.name}
               count={categoryCounts.get(c.id) ?? 0}
               active={category === c.id}
-              onClick={() => setCategory(c.id)}
+              onClick={() => handleCategoryChange(c.id)}
             />
           ))}
         </div>
@@ -382,6 +427,7 @@ export function CatalogClient({
                     </th>
                     <th className="w-16 px-3 py-2 font-medium"></th>
                     <th className="px-3 py-2 font-medium">Model</th>
+                    <th className="px-3 py-2 font-medium">Series</th>
                     <th className="px-3 py-2 font-medium">Tên sản phẩm</th>
                     <th className="px-3 py-2 font-medium">Loại</th>
                     <th className="px-3 py-2 text-right font-medium">
@@ -396,7 +442,7 @@ export function CatalogClient({
                   {displayedProducts.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={8}
                         className="px-3 py-10 text-center text-muted-foreground"
                       >
                         Không tìm thấy thiết bị phù hợp.
@@ -593,6 +639,7 @@ const ProductRow = memo(function ProductRow({
         </button>
       </td>
       <td className="px-3 py-2 text-muted-foreground">{product.model}</td>
+      <td className="px-3 py-2 text-muted-foreground">{product.series || "-"}</td>
       <td className="max-w-[280px] px-3 py-2 font-medium">
         <span className="line-clamp-2">{product.name}</span>
       </td>
