@@ -93,10 +93,6 @@ export function QuoteCartDialog({
       toast.error("Vui lòng chọn ít nhất một thiết bị");
       return;
     }
-    if (!name.trim() || !email.trim() || !phone.trim() || !address.trim()) {
-      toast.error("Vui lòng nhập đầy đủ họ tên, email, số điện thoại và địa chỉ");
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -198,25 +194,25 @@ export function QuoteCartDialog({
           </div>
         </div>
 
-        <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <div className="flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm text-foreground">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
           <p>
-            Vui lòng nhập <strong>chính xác</strong> họ tên, số điện thoại và địa chỉ — các thông
-            tin này sẽ được điền vào hợp đồng báo giá gửi cho bạn.
+            Các thông tin bên dưới không bắt buộc, nhưng nếu điền thì vui lòng nhập{" "}
+            <strong>chính xác</strong> — sẽ được dùng để điền vào hợp đồng báo giá gửi cho bạn.
           </p>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1">
-            <Label htmlFor="quote-name">Họ tên *</Label>
+            <Label htmlFor="quote-name">Họ tên</Label>
             <Input id="quote-name" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="quote-phone">Số điện thoại *</Label>
+            <Label htmlFor="quote-phone">Số điện thoại</Label>
             <Input id="quote-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
           <div className="col-span-full space-y-1">
-            <Label htmlFor="quote-email">Email *</Label>
+            <Label htmlFor="quote-email">Email</Label>
             <Input
               id="quote-email"
               type="email"
@@ -226,7 +222,7 @@ export function QuoteCartDialog({
             />
           </div>
           <div className="col-span-full space-y-1">
-            <Label htmlFor="quote-address">Địa chỉ *</Label>
+            <Label htmlFor="quote-address">Địa chỉ</Label>
             <Input
               id="quote-address"
               value={address}

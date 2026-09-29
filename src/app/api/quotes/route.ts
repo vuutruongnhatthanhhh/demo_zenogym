@@ -31,19 +31,16 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { customerName, customerEmail, customerPhone, companyName, address, note, items, linkCode } =
     body as {
-      customerName: string;
-      customerEmail: string;
-      customerPhone: string;
+      customerName?: string;
+      customerEmail?: string;
+      customerPhone?: string;
       companyName?: string;
-      address: string;
+      address?: string;
       note?: string;
       items: QuoteRequestItem[];
       linkCode?: string;
     };
 
-  if (!customerName || !customerEmail || !customerPhone || !address) {
-    return NextResponse.json({ error: "Thiếu thông tin khách hàng" }, { status: 400 });
-  }
   if (!Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ error: "Chưa chọn thiết bị nào" }, { status: 400 });
   }
@@ -71,11 +68,11 @@ export async function POST(req: NextRequest) {
   }
 
   const quote = await createQuoteRequest({
-    customerName,
+    customerName: customerName?.trim() || "",
     customerEmail: customerEmail?.trim() || "",
-    customerPhone,
+    customerPhone: customerPhone?.trim() || "",
     companyName,
-    address,
+    address: address?.trim() || "",
     note,
     items,
     linkCode: quoteCode?.code,

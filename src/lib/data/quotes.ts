@@ -125,19 +125,22 @@ const RATE_LIMIT_MAX_SUBMISSIONS = 3;
 // within a short window regardless of how they were submitted.
 export async function isQuoteSubmissionRateLimited(params: {
   email?: string;
-  phone: string;
+  phone?: string;
   ip?: string;
 }): Promise<boolean> {
   const admin = createAdminClient();
   const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60_000).toISOString();
 
-  const checks = [
-    admin
-      .from("quotes")
-      .select("id", { count: "exact", head: true })
-      .eq("customer_phone", params.phone.trim())
-      .gte("created_at", since),
-  ];
+  const checks = [];
+  if (params.phone?.trim()) {
+    checks.push(
+      admin
+        .from("quotes")
+        .select("id", { count: "exact", head: true })
+        .eq("customer_phone", params.phone.trim())
+        .gte("created_at", since)
+    );
+  }
   if (params.email?.trim()) {
     checks.push(
       admin
@@ -167,13 +170,13 @@ export async function isQuoteSubmissionRateLimited(params: {
 
 async function nextQuoteCode(admin: ReturnType<typeof createAdminClient>): Promise<string> {
   const year = new Date().getFullYear();
-  const startOfYear = new Date(Date.UTC(year, 0, 1)).toISOString();
-  const { count, error } = await admin
-    .from("quotes")
-    .select("id", { count: "exact", head: true })
-    .gte("created_at", startOfYear);
+  // Atomic DB counter (see migrations/0015_quote_code_seq.sql) — counting
+  // existing rows + 1 broke as soon as a quote could be deleted (the count
+  // drops below the highest sequence already used, so the next submission
+  // recomputes a code that's still in use).
+  const { data, error } = await admin.rpc("next_quote_seq", { p_year: year });
   if (error) throw error;
-  const seq = (count ?? 0) + 1;
+  const seq = data as number;
   return `ZG-${year}-${String(seq).padStart(4, "0")}`;
 }
 
