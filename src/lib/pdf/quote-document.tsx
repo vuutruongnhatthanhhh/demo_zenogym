@@ -158,8 +158,8 @@ export function QuoteDocument({ quote, items, party }: QuoteDocumentProps) {
           Bên A hỗ trợ bốc hàng từ kho lên xe, hàng từ xe xuống tới chỗ lắp máy bên B tự cho người
           bốc dỡ.{"\n"}
           1. Thanh Toán: KHÔNG HOÀN CỌC VỚI BẤT KỲ TRƯỜNG HỢP NÀO{"\n"}
-          {"  "}- Hàng order từ nhà máy: thanh toán 90% giá trị hợp đồng. 10% còn lại thanh toán
-          ngay sau khi giao hàng.{"\n"}
+          {"  "}- Thanh toán 50% giá trị hợp đồng, trước khi hàng lên tàu thanh toán 30%. Phần còn
+          lại 20% thanh toán khi nhận hàng.{"\n"}
           2. Thời gian giao hàng:{"\n"}
           {"  "}Hàng có sẵn: giao luôn trong vòng 1-15 ngày kể từ ngày đặt cọc.{"\n"}
           {"  "}Hàng order: khoảng 45-60 ngày kể từ ngày ký hợp đồng.{"\n"}
