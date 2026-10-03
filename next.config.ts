@@ -23,6 +23,13 @@ const nextConfig: NextConfig = {
         pathname: "/storage/v1/object/public/**",
       },
     ],
+    // Product images are already resized (max 1200x1200) and compressed to
+    // WebP at upload time (see src/lib/images.ts) — Vercel's on-request
+    // Image Optimization would just re-transform an already-optimized file
+    // on every unique size, burning through its free "Image Optimization"
+    // quota for no real size/quality gain. Serve the pre-optimized file
+    // as-is instead.
+    unoptimized: true,
   },
 };
 
