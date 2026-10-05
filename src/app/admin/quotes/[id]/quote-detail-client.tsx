@@ -1146,7 +1146,7 @@ const AddProductRow = memo(function AddProductRow({
           <Image src={product.image} alt={product.name} fill className="object-cover" />
         </div>
       </td>
-      <td className="px-3 py-2 text-muted-foreground">{product.model}</td>
+      <td className="px-3 py-2 text-muted-foreground">{product.model || "-"}</td>
       <td className="px-3 py-2 text-muted-foreground">{product.series || "-"}</td>
       <td className="max-w-[280px] px-3 py-2 font-medium">
         <span className="line-clamp-2">{product.name}</span>

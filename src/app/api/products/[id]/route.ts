@@ -39,7 +39,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const product = await updateProduct(id, {
-    model: model || existing.model,
+    // Model is optional — unlike the other fields below, an empty submission
+    // here means "clear it", not "keep the old value".
+    model,
     name: name || existing.name,
     imageUrl,
     priceUsd: Number.isFinite(priceUsd) && priceUsd >= 0 ? priceUsd : existing.priceUsd,

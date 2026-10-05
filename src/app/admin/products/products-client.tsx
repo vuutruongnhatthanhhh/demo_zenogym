@@ -168,7 +168,7 @@ export function ProductsClient({
   }
 
   async function handleDelete(product: Product) {
-    if (!confirm(`Xóa sản phẩm "${product.model}"?`)) return;
+    if (!confirm(`Xóa sản phẩm "${product.model || product.name}"?`)) return;
     const res = await fetch(`/api/products/${product.id}`, { method: "DELETE" });
     if (!res.ok) {
       toast.error("Xóa sản phẩm thất bại");
@@ -373,7 +373,7 @@ export function ProductsClient({
                         </button>
                       </td>
                       <td className="px-3 py-2 text-muted-foreground">
-                        {product.model}
+                        {product.model || "-"}
                         {product.series ? (
                           <p className="text-[10px] text-muted-foreground/70">Series: {product.series}</p>
                         ) : null}

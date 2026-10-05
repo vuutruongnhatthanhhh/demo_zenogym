@@ -71,8 +71,8 @@ export function ProductFormDialog({
   const missingTaxonomy = categories.length === 0 || factories.length === 0;
 
   async function handleSubmit() {
-    if (!model.trim() || !name.trim() || !priceUsd || !categoryId || !factoryId) {
-      toast.error("Vui lòng nhập đầy đủ model, tên, giá, loại sản phẩm và nhà máy");
+    if (!name.trim() || !priceUsd || !categoryId || !factoryId) {
+      toast.error("Vui lòng nhập đầy đủ tên, giá, loại sản phẩm và nhà máy");
       return;
     }
     if (!isEdit && !imageFile) {
@@ -127,7 +127,7 @@ export function ProductFormDialog({
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label htmlFor="p-model">Model *</Label>
+              <Label htmlFor="p-model">Model</Label>
               <Input id="p-model" value={model} onChange={(e) => setModel(e.target.value)} />
             </div>
             <div className="space-y-1">

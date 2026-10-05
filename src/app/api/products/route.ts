@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
   const available = String(form.get("available") ?? "true") === "true";
   const imageFile = form.get("image");
 
-  if (!model || !name || !categoryId || !factoryId || !Number.isFinite(priceUsd) || priceUsd < 0) {
+  if (!name || !categoryId || !factoryId || !Number.isFinite(priceUsd) || priceUsd < 0) {
     return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
   }
   if (!(imageFile instanceof File) || imageFile.size === 0) {
