@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useMemo } from "react";
+import { useMemo } from "react";
+import { ProductFilterTab } from "@/components/product-filter-tab";
 import type { Product } from "@/lib/types";
 
 export function ProductFactoryFilter({
@@ -12,33 +13,37 @@ export function ProductFactoryFilter({
   value: string;
   onChange: (factoryId: string) => void;
 }) {
-  const id = useId();
   const factories = useMemo(() => {
-    const names = new Map<string, string>();
+    const byId = new Map<string, { id: string; name: string; count: number }>();
     for (const { factoryId, factoryName } of products) {
-      if (factoryId) names.set(factoryId, factoryName);
+      if (!factoryId) continue;
+      const factory = byId.get(factoryId);
+      if (factory) factory.count += 1;
+      else byId.set(factoryId, { id: factoryId, name: factoryName || "Không rõ", count: 1 });
     }
-    return Array.from(names).sort(([, a], [, b]) => a.localeCompare(b, "vi"));
+    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name, "vi"));
   }, [products]);
 
   return (
-    <div className="w-44 space-y-1">
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
+    <div role="group" aria-label="Nhà máy" className="flex flex-wrap items-center gap-1 border-b">
+      <span className="pl-3 pr-1 text-xs font-medium text-muted-foreground">
         Nhà máy
-      </label>
-      <select
-        id={id}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm"
-      >
-        <option value="">Tất cả</option>
-        {factories.map(([factoryId, name]) => (
-          <option key={factoryId} value={factoryId}>
-            {name || "Không rõ"}
-          </option>
-        ))}
-      </select>
+      </span>
+      <ProductFilterTab
+        label="Tất cả"
+        count={products.length}
+        active={value === ""}
+        onClick={() => onChange("")}
+      />
+      {factories.map(({ id, name, count }) => (
+        <ProductFilterTab
+          key={id}
+          label={name}
+          count={count}
+          active={value === id}
+          onClick={() => onChange(id)}
+        />
+      ))}
     </div>
   );
 }

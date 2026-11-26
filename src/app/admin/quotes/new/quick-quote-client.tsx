@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -12,13 +12,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductFactoryFilter } from "@/components/product-factory-filter";
+import { ProductFilterTab } from "@/components/product-filter-tab";
 import { cn } from "@/lib/utils";
 import type { Category, Product } from "@/lib/types";
-
-// Sentinel tab id for "show every category at once" — same convention as the
-// customer-facing catalog.
-const ALL_CATEGORY_ID = "all";
-const ALL_SERIES_ID = "all";
+import { ALL_CATEGORY_ID, ALL_SERIES_ID, useProductFilters } from "@/lib/use-product-filters";
 
 export function QuickQuoteClient({
   products,
@@ -31,53 +28,22 @@ export function QuickQuoteClient({
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [address, setAddress] = useState("");
-  const [category, setCategory] = useState<string>(ALL_CATEGORY_ID);
-  const [series, setSeries] = useState<string>(ALL_SERIES_ID);
-  const [factoryId, setFactoryId] = useState("");
-  const [search, setSearch] = useState("");
+  const {
+    factoryId,
+    category,
+    series,
+    search,
+    factoryProductCount,
+    categoryCounts,
+    seriesList,
+    displayedProducts,
+    handleFactoryChange,
+    handleCategoryChange,
+    setSeries,
+    setSearch,
+  } = useProductFilters(products);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
-
-  // Scoped to the active category tab first — series options and the
-  // "series" filter itself only ever apply within whichever tab is open, so
-  // a series chosen under one category can never silently hide everything
-  // after switching to a tab that doesn't have it (it gets reset instead,
-  // see handleCategoryChange).
-  const productsInCategory = useMemo(
-    () => (category === ALL_CATEGORY_ID ? products : products.filter((p) => p.categoryId === category)),
-    [products, category]
-  );
-
-  const normalizedSearch = search.trim().toLowerCase();
-  const displayedProducts = useMemo(() => {
-    let list = productsInCategory;
-    if (factoryId) list = list.filter((p) => p.factoryId === factoryId);
-    if (series !== ALL_SERIES_ID) list = list.filter((p) => p.series === series);
-    if (!normalizedSearch) return list;
-    return list.filter(
-      (p) =>
-        p.name.toLowerCase().includes(normalizedSearch) || p.model.toLowerCase().includes(normalizedSearch)
-    );
-  }, [productsInCategory, factoryId, series, normalizedSearch]);
-
-  const categoryCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const p of products) counts.set(p.categoryId, (counts.get(p.categoryId) ?? 0) + 1);
-    return counts;
-  }, [products]);
-
-  const seriesList = useMemo(() => {
-    const values = new Set<string>();
-    for (const p of productsInCategory) if (p.series) values.add(p.series);
-    return Array.from(values).sort((a, b) => a.localeCompare(b));
-  }, [productsInCategory]);
-
-  // Switching tabs resets the series filter — a series picked under one
-  // category has no guaranteed meaning (or any matches at all) under another.
-  function handleCategoryChange(nextCategory: string) {
-    setCategory(nextCategory);
-    setSeries(ALL_SERIES_ID);
-  }
 
   // Stable identities so memoized rows only re-render for the row that
   // actually changed — same fix applied to /catalog for the same reason.
@@ -202,11 +168,13 @@ export function QuickQuoteClient({
                 className="pl-8"
               />
             </div>
-            <ProductFactoryFilter products={products} value={factoryId} onChange={setFactoryId} />
             {seriesList.length > 0 ? (
               <div className="w-40 space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Series</label>
+                <label htmlFor="quick-quote-series" className="text-xs font-medium text-muted-foreground">
+                  Series
+                </label>
                 <select
+                  id="quick-quote-series"
                   value={series}
                   onChange={(e) => setSeries(e.target.value)}
                   className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm"
@@ -222,15 +190,17 @@ export function QuickQuoteClient({
             ) : null}
           </div>
 
-          <div className="flex flex-wrap gap-1 border-b">
-            <TabButton
+          <ProductFactoryFilter products={products} value={factoryId} onChange={handleFactoryChange} />
+
+          <div role="group" aria-label="Danh mục" className="flex flex-wrap gap-1 border-b">
+            <ProductFilterTab
               label="Tất cả"
-              count={products.length}
+              count={factoryProductCount}
               active={category === ALL_CATEGORY_ID}
               onClick={() => handleCategoryChange(ALL_CATEGORY_ID)}
             />
             {categories.map((c) => (
-              <TabButton
+              <ProductFilterTab
                 key={c.id}
                 label={c.name}
                 count={categoryCounts.get(c.id) ?? 0}
@@ -347,33 +317,3 @@ const QuickProductRow = memo(function QuickProductRow({
     </tr>
   );
 });
-
-function TabButton({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors",
-        active
-          ? "border-primary text-primary"
-          : "border-transparent text-muted-foreground hover:text-foreground"
-      )}
-    >
-      {label}{" "}
-      <span className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-bold text-destructive-foreground">
-        {count}
-      </span>
-    </button>
-  );
-}

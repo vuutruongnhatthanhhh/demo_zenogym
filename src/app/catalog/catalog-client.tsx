@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ProductFactoryFilter } from "@/components/product-factory-filter";
+import { ProductFilterTab } from "@/components/product-filter-tab";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,7 @@ import {
   type PricingSettings,
 } from "@/lib/pricing";
 import type { Category, Product } from "@/lib/types";
+import { ALL_CATEGORY_ID, ALL_SERIES_ID, useProductFilters } from "@/lib/use-product-filters";
 import { QuoteCartDialog } from "./quote-cart-dialog";
 
 export interface CartLine {
@@ -56,11 +58,6 @@ export interface CartLine {
 // resurrecting a cart from a long-abandoned attempt.
 const PENDING_CART_KEY = "zenogym_pending_cart";
 const PENDING_CART_TTL_MS = 60 * 60 * 1000;
-
-// Sentinel tab id for "show every category at once" — distinct from any real
-// category UUID so it can't collide with actual data.
-const ALL_CATEGORY_ID = "all";
-const ALL_SERIES_ID = "all";
 
 export function CatalogClient({
   products,
@@ -91,10 +88,20 @@ export function CatalogClient({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [category, setCategory] = useState<string>(() => ALL_CATEGORY_ID);
-  const [series, setSeries] = useState<string>(ALL_SERIES_ID);
-  const [factoryId, setFactoryId] = useState("");
-  const [search, setSearch] = useState("");
+  const {
+    factoryId,
+    category,
+    series,
+    search,
+    factoryProductCount,
+    categoryCounts,
+    seriesList,
+    displayedProducts,
+    handleFactoryChange,
+    handleCategoryChange,
+    setSeries,
+    setSearch,
+  } = useProductFilters(products);
   // Nothing is pre-selected — the customer picks what they actually want.
   const [cart, setCart] = useState<Record<string, number>>({});
   const [cartOpen, setCartOpen] = useState(false);
@@ -137,61 +144,12 @@ export function CatalogClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // All products are already on the client (see getAvailableProducts), so
-  // tab/search filtering is just an in-memory filter — no network round
-  // trip, no debounce needed, and it stays instant even for a large catalog.
-  //
-  // Scoped to the active category tab first — series options and the
-  // "series" filter itself only ever apply within whichever tab is open, so
-  // a series chosen under one category can't silently hide everything after
-  // switching tabs (it gets reset instead, see handleCategoryChange).
-  const productsInCategory = useMemo(
-    () =>
-      category === ALL_CATEGORY_ID
-        ? products
-        : products.filter((p) => p.categoryId === category),
-    [products, category],
-  );
-
-  const normalizedSearch = search.trim().toLowerCase();
-  const displayedProducts = useMemo(() => {
-    let list = productsInCategory;
-    if (factoryId) list = list.filter((p) => p.factoryId === factoryId);
-    if (series !== ALL_SERIES_ID) list = list.filter((p) => p.series === series);
-    if (!normalizedSearch) return list;
-    return list.filter(
-      (p) =>
-        p.name.toLowerCase().includes(normalizedSearch) ||
-        p.model.toLowerCase().includes(normalizedSearch),
-    );
-  }, [productsInCategory, factoryId, series, normalizedSearch]);
-
-  const seriesList = useMemo(() => {
-    const values = new Set<string>();
-    for (const p of productsInCategory) if (p.series) values.add(p.series);
-    return Array.from(values).sort((a, b) => a.localeCompare(b));
-  }, [productsInCategory]);
-
-  // Switching tabs resets the series filter — a series picked under one
-  // category has no guaranteed meaning (or any matches at all) under another.
-  function handleCategoryChange(nextCategory: string) {
-    setCategory(nextCategory);
-    setSeries(ALL_SERIES_ID);
-  }
-
   async function handleSignOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
   }
-
-  const categoryCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const p of products)
-      counts.set(p.categoryId, (counts.get(p.categoryId) ?? 0) + 1);
-    return counts;
-  }, [products]);
 
   const cartLines: CartLine[] = useMemo(() => {
     return Object.entries(cart)
@@ -367,13 +325,13 @@ export function CatalogClient({
               className="pl-8"
             />
           </div>
-          {showFactoryFilter && (
-            <ProductFactoryFilter products={products} value={factoryId} onChange={setFactoryId} />
-          )}
           {seriesList.length > 0 ? (
             <div className="w-40 space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Series</label>
+              <label htmlFor="catalog-series" className="text-xs font-medium text-muted-foreground">
+                Series
+              </label>
               <select
+                id="catalog-series"
                 value={series}
                 onChange={(e) => setSeries(e.target.value)}
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm"
@@ -389,15 +347,21 @@ export function CatalogClient({
           ) : null}
         </div>
 
-        <div className="mb-2 flex flex-wrap gap-1 border-b">
-          <TabButton
+        {showFactoryFilter && (
+          <div className="mb-2">
+            <ProductFactoryFilter products={products} value={factoryId} onChange={handleFactoryChange} />
+          </div>
+        )}
+
+        <div role="group" aria-label="Danh mục" className="mb-2 flex flex-wrap gap-1 border-b">
+          <ProductFilterTab
             label="Tất cả"
-            count={products.length}
+            count={factoryProductCount}
             active={category === ALL_CATEGORY_ID}
             onClick={() => handleCategoryChange(ALL_CATEGORY_ID)}
           />
           {categories.map((c) => (
-            <TabButton
+            <ProductFilterTab
               key={c.id}
               label={c.name}
               count={categoryCounts.get(c.id) ?? 0}
@@ -670,32 +634,3 @@ const ProductRow = memo(function ProductRow({
     </tr>
   );
 });
-
-function TabButton({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors",
-        active
-          ? "border-primary text-primary"
-          : "border-transparent text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {label}{" "}
-      <span className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-bold text-destructive-foreground">
-        {count}
-      </span>
-    </button>
-  );
-}
