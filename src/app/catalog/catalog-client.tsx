@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { ProductFactoryFilter } from "@/components/product-factory-filter";
 import {
   Dialog,
   DialogContent,
@@ -64,6 +65,7 @@ const ALL_SERIES_ID = "all";
 export function CatalogClient({
   products,
   categories,
+  showFactoryFilter = false,
   pricingSettings,
   customerName,
   customerEmail,
@@ -76,6 +78,7 @@ export function CatalogClient({
 }: {
   products: Product[];
   categories: Category[];
+  showFactoryFilter?: boolean;
   pricingSettings: PricingSettings;
   customerName: string;
   customerEmail: string;
@@ -90,6 +93,7 @@ export function CatalogClient({
   const pathname = usePathname();
   const [category, setCategory] = useState<string>(() => ALL_CATEGORY_ID);
   const [series, setSeries] = useState<string>(ALL_SERIES_ID);
+  const [factoryId, setFactoryId] = useState("");
   const [search, setSearch] = useState("");
   // Nothing is pre-selected — the customer picks what they actually want.
   const [cart, setCart] = useState<Record<string, number>>({});
@@ -152,6 +156,7 @@ export function CatalogClient({
   const normalizedSearch = search.trim().toLowerCase();
   const displayedProducts = useMemo(() => {
     let list = productsInCategory;
+    if (factoryId) list = list.filter((p) => p.factoryId === factoryId);
     if (series !== ALL_SERIES_ID) list = list.filter((p) => p.series === series);
     if (!normalizedSearch) return list;
     return list.filter(
@@ -159,7 +164,7 @@ export function CatalogClient({
         p.name.toLowerCase().includes(normalizedSearch) ||
         p.model.toLowerCase().includes(normalizedSearch),
     );
-  }, [productsInCategory, series, normalizedSearch]);
+  }, [productsInCategory, factoryId, series, normalizedSearch]);
 
   const seriesList = useMemo(() => {
     const values = new Set<string>();
@@ -362,6 +367,9 @@ export function CatalogClient({
               className="pl-8"
             />
           </div>
+          {showFactoryFilter && (
+            <ProductFactoryFilter products={products} value={factoryId} onChange={setFactoryId} />
+          )}
           {seriesList.length > 0 ? (
             <div className="w-40 space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Series</label>

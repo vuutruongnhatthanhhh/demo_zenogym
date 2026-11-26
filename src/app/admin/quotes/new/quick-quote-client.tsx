@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProductFactoryFilter } from "@/components/product-factory-filter";
 import { cn } from "@/lib/utils";
 import type { Category, Product } from "@/lib/types";
 
@@ -32,6 +33,7 @@ export function QuickQuoteClient({
   const [address, setAddress] = useState("");
   const [category, setCategory] = useState<string>(ALL_CATEGORY_ID);
   const [series, setSeries] = useState<string>(ALL_SERIES_ID);
+  const [factoryId, setFactoryId] = useState("");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -49,13 +51,14 @@ export function QuickQuoteClient({
   const normalizedSearch = search.trim().toLowerCase();
   const displayedProducts = useMemo(() => {
     let list = productsInCategory;
+    if (factoryId) list = list.filter((p) => p.factoryId === factoryId);
     if (series !== ALL_SERIES_ID) list = list.filter((p) => p.series === series);
     if (!normalizedSearch) return list;
     return list.filter(
       (p) =>
         p.name.toLowerCase().includes(normalizedSearch) || p.model.toLowerCase().includes(normalizedSearch)
     );
-  }, [productsInCategory, series, normalizedSearch]);
+  }, [productsInCategory, factoryId, series, normalizedSearch]);
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -199,6 +202,7 @@ export function QuickQuoteClient({
                 className="pl-8"
               />
             </div>
+            <ProductFactoryFilter products={products} value={factoryId} onChange={setFactoryId} />
             {seriesList.length > 0 ? (
               <div className="w-40 space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Series</label>

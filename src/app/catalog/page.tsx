@@ -20,6 +20,7 @@ export default async function CatalogPage() {
     <CatalogClient
       products={products}
       categories={categories}
+      showFactoryFilter
       pricingSettings={pricingSettings}
       customerName={user?.name ?? ""}
       customerEmail={user?.contactEmail ?? ""}
