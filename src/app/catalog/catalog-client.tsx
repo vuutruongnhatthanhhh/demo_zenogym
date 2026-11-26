@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ProductFactoryFilter } from "@/components/product-factory-filter";
-import { ProductFilterTab } from "@/components/product-filter-tab";
+import { ProductFilterTab, ProductFilterTabs } from "@/components/product-filter-tab";
 import {
   Dialog,
   DialogContent,
@@ -94,8 +94,9 @@ export function CatalogClient({
     series,
     search,
     factoryProductCount,
+    categoryProductCount,
     categoryCounts,
-    seriesList,
+    seriesOptions,
     displayedProducts,
     handleFactoryChange,
     handleCategoryChange,
@@ -325,7 +326,7 @@ export function CatalogClient({
               className="pl-8"
             />
           </div>
-          {seriesList.length > 0 ? (
+          {!showFactoryFilter && seriesOptions.length > 0 ? (
             <div className="w-40 space-y-1">
               <label htmlFor="catalog-series" className="text-xs font-medium text-muted-foreground">
                 Series
@@ -337,9 +338,9 @@ export function CatalogClient({
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm"
               >
                 <option value={ALL_SERIES_ID}>Tất cả</option>
-                {seriesList.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
+                {seriesOptions.map(({ id, name }) => (
+                  <option key={id} value={id}>
+                    {name}
                   </option>
                 ))}
               </select>
@@ -348,8 +349,17 @@ export function CatalogClient({
         </div>
 
         {showFactoryFilter && (
-          <div className="mb-2">
+          <div className="mb-2 space-y-2">
             <ProductFactoryFilter products={products} value={factoryId} onChange={handleFactoryChange} />
+            {factoryId && seriesOptions.length > 0 && (
+              <ProductFilterTabs
+                label="Series"
+                options={seriesOptions}
+                total={categoryProductCount}
+                value={series}
+                onChange={setSeries}
+              />
+            )}
           </div>
         )}
 

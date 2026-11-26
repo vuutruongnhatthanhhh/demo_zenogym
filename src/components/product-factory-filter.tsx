@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { ProductFilterTab } from "@/components/product-filter-tab";
+import { ProductFilterTabs } from "@/components/product-filter-tab";
 import type { Product } from "@/lib/types";
 
 export function ProductFactoryFilter({
@@ -25,25 +25,12 @@ export function ProductFactoryFilter({
   }, [products]);
 
   return (
-    <div role="group" aria-label="Nhà máy" className="flex flex-wrap items-center gap-1 border-b">
-      <span className="pl-3 pr-1 text-xs font-medium text-muted-foreground">
-        Nhà máy
-      </span>
-      <ProductFilterTab
-        label="Tất cả"
-        count={products.length}
-        active={value === ""}
-        onClick={() => onChange("")}
-      />
-      {factories.map(({ id, name, count }) => (
-        <ProductFilterTab
-          key={id}
-          label={name}
-          count={count}
-          active={value === id}
-          onClick={() => onChange(id)}
-        />
-      ))}
-    </div>
+    <ProductFilterTabs
+      label="Nhà máy"
+      options={factories}
+      total={products.length}
+      value={value}
+      onChange={onChange}
+    />
   );
 }

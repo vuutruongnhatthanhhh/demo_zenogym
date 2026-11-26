@@ -1,5 +1,42 @@
 import { cn } from "@/lib/utils";
 
+export function ProductFilterTabs({
+  label,
+  options,
+  total,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { id: string; name: string; count: number }[];
+  total: number;
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <div role="group" aria-label={label} className="flex flex-wrap items-center gap-1 border-b">
+      <span className="pl-3 pr-1 text-xs font-medium text-muted-foreground">
+        {label}
+      </span>
+      <ProductFilterTab
+        label="Tất cả"
+        count={total}
+        active={value === ""}
+        onClick={() => onChange("")}
+      />
+      {options.map(({ id, name, count }) => (
+        <ProductFilterTab
+          key={id}
+          label={name}
+          count={count}
+          active={value === id}
+          onClick={() => onChange(id)}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function ProductFilterTab({
   label,
   count,

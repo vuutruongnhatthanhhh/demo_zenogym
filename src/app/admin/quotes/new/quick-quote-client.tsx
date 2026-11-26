@@ -12,10 +12,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductFactoryFilter } from "@/components/product-factory-filter";
-import { ProductFilterTab } from "@/components/product-filter-tab";
+import { ProductFilterTab, ProductFilterTabs } from "@/components/product-filter-tab";
 import { cn } from "@/lib/utils";
 import type { Category, Product } from "@/lib/types";
-import { ALL_CATEGORY_ID, ALL_SERIES_ID, useProductFilters } from "@/lib/use-product-filters";
+import { ALL_CATEGORY_ID, useProductFilters } from "@/lib/use-product-filters";
 
 export function QuickQuoteClient({
   products,
@@ -34,8 +34,9 @@ export function QuickQuoteClient({
     series,
     search,
     factoryProductCount,
+    categoryProductCount,
     categoryCounts,
-    seriesList,
+    seriesOptions,
     displayedProducts,
     handleFactoryChange,
     handleCategoryChange,
@@ -158,39 +159,26 @@ export function QuickQuoteClient({
           <CardTitle className="text-base">Chọn sản phẩm</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="relative w-full sm:max-w-xs">
-              <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Tìm theo tên sản phẩm hoặc model..."
-                className="pl-8"
-              />
-            </div>
-            {seriesList.length > 0 ? (
-              <div className="w-40 space-y-1">
-                <label htmlFor="quick-quote-series" className="text-xs font-medium text-muted-foreground">
-                  Series
-                </label>
-                <select
-                  id="quick-quote-series"
-                  value={series}
-                  onChange={(e) => setSeries(e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm"
-                >
-                  <option value={ALL_SERIES_ID}>Tất cả</option>
-                  {seriesList.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
+          <div className="relative w-full sm:max-w-xs">
+            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Tìm theo tên sản phẩm hoặc model..."
+              className="pl-8"
+            />
           </div>
 
           <ProductFactoryFilter products={products} value={factoryId} onChange={handleFactoryChange} />
+          {factoryId && seriesOptions.length > 0 && (
+            <ProductFilterTabs
+              label="Series"
+              options={seriesOptions}
+              total={categoryProductCount}
+              value={series}
+              onChange={setSeries}
+            />
+          )}
 
           <div role="group" aria-label="Danh mục" className="flex flex-wrap gap-1 border-b">
             <ProductFilterTab
